@@ -1,0 +1,5 @@
+{
+  "name": "QCVO",
+  "description": "A dark-themed, minimalist quantum circuit visualization tool inspired by Quirk. Features drag-and-drop gates, real-time Bloch sphere visualization, and matrix inspection.",
+  "requestFramePermissions": []
+}
