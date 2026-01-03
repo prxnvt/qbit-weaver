@@ -13,8 +13,9 @@ const NEG_INV_SQRT2: Complex = { re: -1 / Math.sqrt(2), im: 0 };
 const T_PHASE: Complex = { re: 1 / Math.sqrt(2), im: 1 / Math.sqrt(2) };
 
 // Layout constants (used for connector line calculations)
-export const ROW_HEIGHT = 48;
+export const ROW_HEIGHT = 72; // 1.5x spacing for rows
 export const CELL_WIDTH = 56; // Width of each gate cell in pixels
+export const GRID_CELL_SIZE = 60; // Size of output grid cells (proportional to row height)
 
 export const GATE_DEFS: Partial<Record<GateType, GateDef>> = {
   [GateType.X]: {
@@ -672,6 +673,6 @@ export const GATE_DEFS: Partial<Record<GateType, GateDef>> = {
   }
 };
 
-export const INITIAL_ROWS = 3;
+export const INITIAL_ROWS = 8; // Always 8 rows (q0-q7)
 export const INITIAL_COLS = 10;
 export const MAX_ROWS = 8;

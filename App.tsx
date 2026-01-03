@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { GateType, CircuitGrid, PARAMETERIZED_GATES, GateParams, Complex, CustomGateDefinition, CONTROL_GATES, ALL_FIXED_2X1_GATES, ARITHMETIC_INPUT_GATES, ARITHMETIC_DARK_BLUE_GATES, ARITHMETIC_LILAC_GATES, ARITHMETIC_FIXED_2X1_GATES } from './types';
-import { INITIAL_ROWS, INITIAL_COLS, MAX_ROWS, ROW_HEIGHT, CELL_WIDTH, GATE_DEFS } from './constants';
+import { INITIAL_ROWS, INITIAL_COLS, MAX_ROWS, ROW_HEIGHT, CELL_WIDTH, GRID_CELL_SIZE, GATE_DEFS } from './constants';
 import { GateLibrary } from './components/GateLibrary';
 import { Gate } from './components/Gate';
 import { BlochSphere } from './components/BlochSphere';
 import { AngleInput } from './components/AngleInput';
 import { CustomGateDialog } from './components/CustomGateDialog';
-import { LoadDropdown } from './components/LoadDropdown';
+import { AlgorithmSidebar } from './components/AlgorithmSidebar';
 import { runCircuitWithMeasurements, getBlochVector, validateCircuit, ValidationError } from './utils/quantum';
 import { AlgorithmTemplate } from './data/algorithms';
 
@@ -28,8 +28,29 @@ interface PendingAngleInput {
   position: { x: number; y: number };
 }
 
+// Helper to get the actual populated dimensions of a template (rows with gates, rightmost col with gate)
+const getTemplatePopulatedDimensions = (template: AlgorithmTemplate): { rows: number; cols: number } => {
+  const grid = template.grid;
+  let maxRow = -1;
+  let maxCol = -1;
+
+  for (let r = 0; r < grid.length; r++) {
+    for (let c = 0; c < grid[r].length; c++) {
+      if (grid[r][c]?.gate !== null) {
+        maxRow = Math.max(maxRow, r);
+        maxCol = Math.max(maxCol, c);
+      }
+    }
+  }
+
+  return {
+    rows: maxRow + 1,
+    cols: maxCol + 1,
+  };
+};
+
 const App: React.FC = () => {
-  const [rows, setRows] = useState(INITIAL_ROWS);
+  // Rows are always fixed at 8 (q0-q7)
   const [hoveredGate, setHoveredGate] = useState<GateType | null>(null);
   const [hoveredInfo, setHoveredInfo] = useState<string | null>(null);
   const [pendingAngle, setPendingAngle] = useState<PendingAngleInput | null>(null);
@@ -47,6 +68,11 @@ const App: React.FC = () => {
 
   // Drag hover state for highlighting
   const [dragHover, setDragHover] = useState<{ row: number; col: number } | null>(null);
+
+  // Template drag state for algorithm sidebar
+  const [hoveredTemplate, setHoveredTemplate] = useState<AlgorithmTemplate | null>(null);
+  const [templateDragHover, setTemplateDragHover] = useState<{ row: number; col: number } | null>(null);
+  const [draggingTemplate, setDraggingTemplate] = useState<AlgorithmTemplate | null>(null);
 
   // Spanning gate resize state (works for REVERSE, INPUT_A/B/R, arithmetic gates)
   const [resizingGate, setResizingGate] = useState<{
@@ -77,8 +103,25 @@ const App: React.FC = () => {
     setValidationErrors(errors);
   }, [grid]);
 
+  // Auto-run circuit with 100ms debounce whenever grid changes and circuit is valid
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      // Only run if circuit is valid (no validation errors)
+      const errors = validateCircuit(grid);
+      if (errors.length === 0) {
+        const result = runCircuitWithMeasurements(grid);
+        setFinalState(result.finalState);
+        setMeasurements(result.measurements);
+        setPopulatedRows(result.populatedRows);
+        setHasRun(true);
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [grid]);
+
   // Calculate display column count: max(rightmost populated column + 1, INITIAL_COLS)
-  // But always show at least as many columns as exist in the grid (for when extending)
+  // After auto-run, wires shorten to rightmost populated column
   const displayColCount = React.useMemo(() => {
     let rightmostPopulated = -1;
     for (let c = grid[0].length - 1; c >= 0; c--) {
@@ -87,27 +130,29 @@ const App: React.FC = () => {
         break;
       }
     }
-    const minCols = Math.max(rightmostPopulated + 1, INITIAL_COLS);
-    // Always show all columns that exist in the grid
-    return Math.max(minCols, grid[0]?.length ?? INITIAL_COLS);
+    return Math.max(rightmostPopulated + 1, INITIAL_COLS);
   }, [grid]);
 
-  // Check if circuit is valid (no errors)
-  const isCircuitValid = validationErrors.length === 0;
-
-  // Handle running the circuit simulation
-  const handleRun = useCallback(() => {
-    const result = runCircuitWithMeasurements(grid);
-    setFinalState(result.finalState);
-    setMeasurements(result.measurements);
-    setPopulatedRows(result.populatedRows);
-    setHasRun(true);
+  // Calculate populated column count for the output grid (columns with at least one gate)
+  const populatedColCount = React.useMemo(() => {
+    let count = 0;
+    for (let c = 0; c < (grid[0]?.length ?? 0); c++) {
+      if (grid.some(row => row[c]?.gate !== null)) {
+        count++;
+      }
+    }
+    return count;
   }, [grid]);
 
-  // Clear circuit
+  // Helper to check if a cell has a validation error
+  const cellHasError = useCallback((row: number, col: number): boolean => {
+    return validationErrors.some(err => err.column === col && err.row === row);
+  }, [validationErrors]);
+
+  // Clear circuit (always keeps 8 rows)
   const handleClear = useCallback(() => {
     setGrid(
-      Array(rows).fill(null).map((_, r) =>
+      Array(MAX_ROWS).fill(null).map((_, r) =>
         Array(INITIAL_COLS).fill(null).map((_, c) => ({
           gate: null,
           id: `cell-${r}-${c}`
@@ -118,31 +163,8 @@ const App: React.FC = () => {
     setFinalState(null);
     setMeasurements([]);
     setPopulatedRows([]);
-  }, [rows]);
-
-  const handleAddRow = () => {
-    if (rows >= MAX_ROWS) return;
-    const currentCols = grid[0]?.length ?? INITIAL_COLS;
-    setGrid(prev => [
-      ...prev,
-      Array(currentCols).fill(null).map((_, c) => ({
-        gate: null,
-        id: `cell-${rows}-${c}`
-      }))
-    ]);
-    setRows(prev => prev + 1);
-  };
-
-  // Add a single column to the right of the grid
-  const addColumn = useCallback(() => {
-    setGrid(prev => {
-      const currentCols = prev[0]?.length ?? 0;
-      return prev.map((row, rIdx) => [
-        ...row,
-        { gate: null, id: `cell-${rIdx}-${currentCols}` }
-      ]);
-    });
   }, []);
+
 
   const handleDrop = useCallback((row: number, dropCol: number, type: GateType, params?: GateParams) => {
     setGrid(prev => {
@@ -324,7 +346,7 @@ const App: React.FC = () => {
       // Account for padding (pt-4 = 16px + py-8 = 32px top)
       const relativeY = e.clientY - rect.top - 16 + circuitContainer.scrollTop;
       const targetRow = Math.floor(relativeY / ROW_HEIGHT);
-      const clampedRow = Math.max(0, Math.min(targetRow, rows - 1));
+      const clampedRow = Math.max(0, Math.min(targetRow, MAX_ROWS - 1));
 
       const { col, originalSpan, edge, gateType } = resizingGate;
 
@@ -356,23 +378,49 @@ const App: React.FC = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [resizingGate, rows, updateSpanningGateSpan]);
+  }, [resizingGate, updateSpanningGateSpan]);
 
   const handleDragOver = (e: React.DragEvent, row: number, col: number) => {
     e.preventDefault();
+
+    // Check if dragging an algorithm template
+    const isTemplate = e.dataTransfer.types.includes('algorithmtemplate');
+    if (isTemplate) {
+      e.dataTransfer.dropEffect = 'copy';
+      setTemplateDragHover({ row, col });
+      setDragHover(null);
+      return;
+    }
+
     // Use move if from circuit board, copy if from sidebar
     const sourceCellId = e.dataTransfer.types.includes('sourcecellid');
     e.dataTransfer.dropEffect = sourceCellId ? 'move' : 'copy';
     setDragHover({ row, col });
+    setTemplateDragHover(null);
   };
 
   const handleDragLeave = () => {
     setDragHover(null);
+    setTemplateDragHover(null);
   };
 
   const handleDropEvent = (e: React.DragEvent, row: number, col: number) => {
     e.preventDefault();
     setDragHover(null);
+    setTemplateDragHover(null);
+
+    // Check for algorithm template drop first
+    const templateData = e.dataTransfer.getData('algorithmTemplate');
+    if (templateData) {
+      try {
+        const template = JSON.parse(templateData) as AlgorithmTemplate;
+        handleDropTemplate(template, row, col);
+        return;
+      } catch {
+        // Ignore parse errors, fall through to gate handling
+      }
+    }
+
     const type = e.dataTransfer.getData('gateType') as GateType;
     if (!type) return;
 
@@ -440,23 +488,93 @@ const App: React.FC = () => {
     setShowCustomDialog(false);
   };
 
-  const handleLoadTemplate = useCallback((template: AlgorithmTemplate) => {
-    // Deep clone the template grid to avoid mutations
-    const newGrid = template.grid.map((row, rIdx) =>
-      row.map((cell, cIdx) => ({
-        ...cell,
-        id: `cell-${rIdx}-${cIdx}`,
-        params: cell.params ? { ...cell.params } : undefined,
-      }))
-    );
+  // Handle dropping a template at a specific position
+  const handleDropTemplate = useCallback((template: AlgorithmTemplate, dropRow: number, dropCol: number) => {
+    const templateRows = template.qubits;
+    const templateCols = template.grid[0]?.length ?? 0;
 
-    setRows(template.qubits);
-    setGrid(newGrid);
+    // Check if template would exceed max rows
+    const endRow = dropRow + templateRows - 1;
+    if (endRow >= MAX_ROWS) {
+      // Cannot place - would exceed max rows
+      return;
+    }
+
+    // Calculate required grid size
+    const requiredRows = dropRow + templateRows;
+    const requiredCols = dropCol + templateCols;
+
+    setGrid(prev => {
+      // Expand grid if needed
+      let newGrid = prev.map(r => r.map(c => ({ ...c })));
+
+      // Add rows if needed
+      const currentRows = newGrid.length;
+      if (requiredRows > currentRows) {
+        const rowsToAdd = requiredRows - currentRows;
+        const currentCols = newGrid[0]?.length ?? INITIAL_COLS;
+        for (let i = 0; i < rowsToAdd; i++) {
+          newGrid.push(
+            Array(currentCols).fill(null).map((_, c) => ({
+              gate: null,
+              id: `cell-${currentRows + i}-${c}`,
+            }))
+          );
+        }
+      }
+
+      // Add columns if needed
+      const currentCols = newGrid[0]?.length ?? INITIAL_COLS;
+      if (requiredCols > currentCols) {
+        const colsToAdd = requiredCols - currentCols;
+        newGrid = newGrid.map((row, rIdx) => [
+          ...row,
+          ...Array(colsToAdd).fill(null).map((_, i) => ({
+            gate: null,
+            id: `cell-${rIdx}-${currentCols + i}`,
+          })),
+        ]);
+      }
+
+      // Place template gates (only where template has gates, don't clear other cells)
+      for (let r = 0; r < templateRows; r++) {
+        for (let c = 0; c < templateCols; c++) {
+          const templateCell = template.grid[r]?.[c];
+          if (templateCell?.gate !== null) {
+            const targetRow = dropRow + r;
+            const targetCol = dropCol + c;
+
+            // Update cell IDs and params for spanning gates
+            let params = templateCell.params ? { ...templateCell.params } : undefined;
+            if (params?.reverseSpan) {
+              params = {
+                ...params,
+                reverseSpan: {
+                  startRow: params.reverseSpan.startRow + dropRow,
+                  endRow: params.reverseSpan.endRow + dropRow,
+                },
+              };
+            }
+
+            newGrid[targetRow][targetCol] = {
+              gate: templateCell.gate,
+              id: `cell-${targetRow}-${targetCol}`,
+              params,
+            };
+          }
+        }
+      }
+
+      return newGrid;
+    });
+
+    // Reset run state
     setHasRun(false);
     setFinalState(null);
     setMeasurements([]);
     setPopulatedRows([]);
   }, []);
+
 
   const clearCell = (row: number, col: number, e: React.MouseEvent) => {
     e.preventDefault();
@@ -521,7 +639,7 @@ const App: React.FC = () => {
   };
 
   // Helper to render a spanning gate (REVERSE, arithmetic 2x1 gates, input markers)
-  const renderSpanningGate = (col: number, gateType: GateType, span: { startRow: number; endRow: number }) => {
+  const renderSpanningGate = (col: number, gateType: GateType, span: { startRow: number; endRow: number }, hasError: boolean = false) => {
     const spanHeight = (span.endRow - span.startRow + 1) * ROW_HEIGHT;
     const isHovered = hoveredReverseGate?.col === col && hoveredReverseGate?.anchorRow === span.startRow;
     const style = getSpanningGateStyle(gateType);
@@ -530,6 +648,9 @@ const App: React.FC = () => {
 
     // Only REVERSE gate is resizable
     const isResizable = (RESIZABLE_SPANNING_GATES as readonly GateType[]).includes(gateType);
+
+    // Error background class
+    const errorBgClass = hasError ? 'bg-red-600' : 'bg-black';
 
     const handleResizeMouseDown = (edge: 'top' | 'bottom') => (e: React.MouseEvent) => {
       e.preventDefault();
@@ -561,7 +682,7 @@ const App: React.FC = () => {
       >
         {/* Main gate body */}
         <div
-          className={`absolute inset-2 border-2 ${style.borderClass} bg-black flex items-center justify-center cursor-grab active:cursor-grabbing`}
+          className={`absolute inset-2 border-2 ${style.borderClass} ${errorBgClass} flex items-center justify-center cursor-grab active:cursor-grabbing`}
           draggable
           onDragStart={(e) => {
             e.dataTransfer.setData('gateType', gateType);
@@ -604,7 +725,7 @@ const App: React.FC = () => {
     const arithmeticSpans: { startRow: number; endRow: number }[] = [];
     const inputSpans: { startRow: number; endRow: number }[] = [];
 
-    for (let r = 0; r < rows; r++) {
+    for (let r = 0; r < MAX_ROWS; r++) {
         const cell = grid[r][colIdx];
         const g = cell.gate;
         if (!g) continue;
@@ -702,47 +823,6 @@ const App: React.FC = () => {
           <div className="flex items-center gap-2">
             <h1 className="font-bold text-lg tracking-tight uppercase">QCVO</h1>
           </div>
-
-          {/* Divider */}
-          <div className="h-6 w-0.5 bg-white"></div>
-
-          {/* Run Button */}
-          <button
-            onClick={handleRun}
-            disabled={!isCircuitValid}
-            className={`flex items-center gap-2 px-4 py-1.5 border-2 transition-colors text-sm font-bold uppercase ${
-              isCircuitValid
-                ? 'border-white hover:bg-white hover:text-black'
-                : 'border-red-500 text-red-500 opacity-50 cursor-not-allowed'
-            }`}
-            title={!isCircuitValid ? `Validation errors: ${validationErrors.length}` : 'Run circuit simulation'}
-          >
-            <span>Run</span>
-          </button>
-
-          {/* Load Template Dropdown */}
-          <LoadDropdown onLoad={handleLoadTemplate} />
-
-          {/* Upload Button */}
-          <button
-            className="flex items-center gap-2 px-4 py-1.5 border-2 border-white hover:bg-white hover:text-black transition-colors text-sm font-bold uppercase"
-          >
-            <span>Upload</span>
-          </button>
-
-          {/* Save Button */}
-          <button
-            className="flex items-center gap-2 px-4 py-1.5 border-2 border-white hover:bg-white hover:text-black transition-colors text-sm font-bold uppercase"
-          >
-            <span>Save</span>
-          </button>
-
-          {/* Optimize Button */}
-          <button
-            className="flex items-center gap-2 px-4 py-1.5 border-2 border-white hover:bg-white hover:text-black transition-colors text-sm font-bold uppercase"
-          >
-            <span>Optimize</span>
-          </button>
         </div>
 
         <div className="flex items-center gap-4">
@@ -763,11 +843,11 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Layout - Circuit Area + Gate Library */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      {/* Main Layout - Circuit Area + Gate Library + Sidebar */}
+      <div className="flex-1 flex min-h-0 overflow-hidden">
 
-        {/* Circuit Area + Gate Library */}
-        <div className="flex flex-col h-full overflow-hidden">
+        {/* Left: Circuit Area + Gate Library */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
           {/* Circuit Area - Scrollable, takes remaining space */}
           <section className="flex-1 relative bg-black overflow-auto min-h-0">
@@ -825,6 +905,25 @@ const App: React.FC = () => {
                             const isColHighlighted = dragHover?.col === cIdx;
                             const isHovered = isRowHighlighted && isColHighlighted;
 
+                            // Template highlight: check if this cell is within the template drop area
+                            // Uses actual populated dimensions (not full grid size)
+                            // Anchor cell (top-left) is full yellow, rest is light yellow
+                            let isTemplateAnchor = false;
+                            let isInTemplateArea = false;
+                            let isTemplateInvalid = false;
+                            if (templateDragHover && draggingTemplate) {
+                              const dims = getTemplatePopulatedDimensions(draggingTemplate);
+                              const startRow = templateDragHover.row;
+                              const startCol = templateDragHover.col;
+                              const endRow = startRow + dims.rows - 1;
+                              const endCol = startCol + dims.cols - 1;
+
+                              isTemplateAnchor = rIdx === startRow && cIdx === startCol;
+                              isInTemplateArea = rIdx >= startRow && rIdx <= endRow && cIdx >= startCol && cIdx <= endCol;
+                              // Check if template would exceed max rows
+                              isTemplateInvalid = endRow >= MAX_ROWS;
+                            }
+
                             return (
                               <div
                                 key={cell.id}
@@ -832,22 +931,28 @@ const App: React.FC = () => {
                                 onDragLeave={handleDragLeave}
                                 onDrop={(e) => handleDropEvent(e, rIdx, cIdx)}
                                 onContextMenu={(e) => clearCell(rIdx, cIdx, e)}
-                                className={`flex items-center justify-center relative transition-colors ${
-                                  isHovered
-                                    ? 'bg-white/20'
-                                    : (isRowHighlighted || isColHighlighted)
-                                      ? 'bg-white/10'
-                                      : ''
+                                className={`flex items-center justify-center relative transition-colors border-r border-white/35 ${
+                                  isInTemplateArea
+                                    ? (isTemplateInvalid
+                                        ? 'bg-red-500/30'
+                                        : isTemplateAnchor
+                                          ? 'bg-yellow-400/60'
+                                          : 'bg-yellow-400/30')
+                                    : isHovered
+                                      ? 'bg-white/20'
+                                      : (isRowHighlighted || isColHighlighted)
+                                        ? 'bg-white/10'
+                                        : ''
                                 }`}
                                 style={{ height: ROW_HEIGHT, width: CELL_WIDTH }}
                               >
                                 {/* Regular gates (non-spanning) */}
                                 {cell.gate && !(ALL_SPANNING_GATE_TYPES as readonly GateType[]).includes(cell.gate) && (
-                                  <Gate type={cell.gate} onHover={setHoveredGate} params={cell.params} cellId={cell.id} />
+                                  <Gate type={cell.gate} onHover={setHoveredGate} params={cell.params} cellId={cell.id} hasError={cellHasError(rIdx, cIdx)} />
                                 )}
                                 {/* Render spanning gate anchor (REVERSE, arithmetic spanning, input markers) */}
                                 {cell.gate && (ALL_SPANNING_GATE_TYPES as readonly GateType[]).includes(cell.gate) && !cell.params?.isSpanContinuation && cell.params?.reverseSpan && (
-                                  renderSpanningGate(cIdx, cell.gate, cell.params.reverseSpan)
+                                  renderSpanningGate(cIdx, cell.gate, cell.params.reverseSpan, cellHasError(rIdx, cIdx))
                                 )}
                               </div>
                             );
@@ -858,24 +963,145 @@ const App: React.FC = () => {
                         <div
                           onDragOver={(e) => {
                             e.preventDefault();
+                            // Check if dragging an algorithm template
+                            const isTemplate = e.dataTransfer.types.includes('algorithmtemplate');
                             e.dataTransfer.dropEffect = 'copy';
-                            addColumn();
+
+                            if (isTemplate && draggingTemplate) {
+                              // For templates, set hover state at the extension column
+                              setTemplateDragHover({ row: rIdx, col: displayColCount });
+                              setDragHover(null);
+                            } else {
+                              // For single gates, show hover on extension zone
+                              setDragHover({ row: rIdx, col: displayColCount });
+                              setTemplateDragHover(null);
+                            }
                           }}
-                          className="shrink-0"
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e: React.DragEvent) => {
+                            e.preventDefault();
+                            setDragHover(null);
+                            setTemplateDragHover(null);
+
+                            // Check for algorithm template drop first
+                            const templateData = e.dataTransfer.getData('algorithmTemplate');
+                            if (templateData) {
+                              try {
+                                const template = JSON.parse(templateData) as AlgorithmTemplate;
+                                const dims = getTemplatePopulatedDimensions(template);
+
+                                // Check if template would exceed max rows
+                                if (rIdx + dims.rows > MAX_ROWS) {
+                                  return; // Can't place - would exceed rows
+                                }
+
+                                // Add columns needed for template, then drop
+                                const dropCol = displayColCount;
+                                const colsNeeded = dims.cols;
+
+                                // Expand grid first
+                                setGrid((prev: CircuitGrid) => {
+                                  const currentCols = prev[0]?.length ?? INITIAL_COLS;
+                                  const requiredCols = dropCol + colsNeeded;
+                                  if (requiredCols <= currentCols) return prev;
+
+                                  const colsToAdd = requiredCols - currentCols;
+                                  return prev.map((row, rowIdx: number) => [
+                                    ...row,
+                                    ...Array(colsToAdd).fill(null).map((_, i) => ({
+                                      gate: null,
+                                      id: `cell-${rowIdx}-${currentCols + i}`,
+                                    })),
+                                  ]);
+                                });
+
+                                // Then drop template (handleDropTemplate will expand if needed)
+                                setTimeout(() => handleDropTemplate(template, rIdx, dropCol), 0);
+                                return;
+                              } catch {
+                                // Ignore parse errors
+                              }
+                            }
+
+                            // Handle single gate drop
+                            const type = e.dataTransfer.getData('gateType') as GateType;
+                            if (!type) return;
+
+                            // Check 2x1 gate row constraint
+                            const isFixed2x1 = (ALL_FIXED_2X1_GATES as readonly GateType[]).includes(type);
+                            if (isFixed2x1 && rIdx + 1 >= MAX_ROWS) {
+                              return; // Can't place 2x1 gate on row 7
+                            }
+
+                            const paramsStr = e.dataTransfer.getData('gateParams');
+                            const existingParams = paramsStr ? JSON.parse(paramsStr) as GateParams : undefined;
+
+                            // Add one column and drop the gate
+                            const dropCol = displayColCount;
+                            setGrid((prev: CircuitGrid) => {
+                              const currentCols = prev[0]?.length ?? INITIAL_COLS;
+                              if (dropCol < currentCols) return prev;
+
+                              return prev.map((row, rowIdx: number) => [
+                                ...row,
+                                { gate: null, id: `cell-${rowIdx}-${currentCols}` }
+                              ]);
+                            });
+
+                            // Drop the gate after grid expansion
+                            setTimeout(() => {
+                              if ((PARAMETERIZED_GATES as readonly GateType[]).includes(type) && !existingParams) {
+                                const rect = (e.target as HTMLElement).getBoundingClientRect();
+                                setPendingAngle({
+                                  row: rIdx,
+                                  col: dropCol,
+                                  type,
+                                  position: { x: rect.left, y: rect.bottom + 8 }
+                                });
+                              } else {
+                                handleDrop(rIdx, dropCol, type, existingParams);
+                              }
+                            }, 0);
+                          }}
+                          className={`shrink-0 transition-colors ${
+                            dragHover?.col === displayColCount && dragHover?.row === rIdx
+                              ? 'bg-white/20'
+                              : templateDragHover?.col === displayColCount && draggingTemplate
+                                ? (() => {
+                                    const dims = getTemplatePopulatedDimensions(draggingTemplate);
+                                    const isInArea = rIdx >= templateDragHover.row && rIdx < templateDragHover.row + dims.rows;
+                                    const isAnchor = rIdx === templateDragHover.row;
+                                    const isInvalid = templateDragHover.row + dims.rows > MAX_ROWS;
+                                    if (!isInArea) return '';
+                                    if (isInvalid) return 'bg-red-500/30';
+                                    return isAnchor ? 'bg-yellow-400/60' : 'bg-yellow-400/30';
+                                  })()
+                                : ''
+                          }`}
                           style={{ width: CELL_WIDTH, height: ROW_HEIGHT }}
                         />
 
-                        {/* Post-run: Percentage + Bloch Sphere */}
+                        {/* Post-run: Percentage box + Bloch Sphere + Grid */}
                         {hasRun && (
-                          <div className="flex items-center ml-4">
-                            {/* Percentage of |1⟩ */}
-                            <div className="text-xs font-mono text-white mr-2 w-10 text-right">
-                              {prob1Pct}%
+                          <div className="flex items-center ml-4 gap-4">
+                            {/* Percentage of |1⟩ in a box with green fill from bottom */}
+                            <div
+                              className="border-2 border-white/30 flex items-center justify-center font-bold text-white relative overflow-hidden"
+                              style={{ width: GRID_CELL_SIZE, height: GRID_CELL_SIZE }}
+                            >
+                              {/* Green fill from bottom based on percentage */}
+                              <div
+                                className="absolute bottom-0 left-0 right-0 bg-green-600"
+                                style={{ height: `${prob1Pct}%` }}
+                              />
+                              {/* Black background for unfilled portion */}
+                              <div className="absolute inset-0 bg-black" style={{ bottom: `${prob1Pct}%`, top: 0 }} />
+                              <span className="text-lg relative z-10">{prob1Pct}%</span>
                             </div>
                             {/* Bloch Sphere */}
                             <BlochSphere
                               x={bx} y={by} z={bz}
-                              size={40}
+                              size={GRID_CELL_SIZE - 8}
                               row={rIdx}
                               col={-1}
                               onHover={setHoveredInfo}
@@ -883,18 +1109,25 @@ const App: React.FC = () => {
                           </div>
                         )}
 
-                        {/* Post-run: n×n grid cells for this row */}
+                        {/* Post-run: grid cells for this row (all rows get cells, populated or not) */}
                         {hasRun && (
-                          <div className="flex items-center ml-4">
-                            {Array.from({ length: populatedRows.length }).map((_, colIdx) => (
+                          <div className="flex items-center ml-4 gap-1">
+                            {Array.from({ length: populatedColCount }).map((_, colIdx) => (
                               <div
                                 key={`grid-${rIdx}-${colIdx}`}
-                                className="border border-white/30 flex items-center justify-center"
-                                style={{ width: 40, height: 40 }}
+                                className="border border-white/30 bg-black flex items-center justify-center"
+                                style={{ width: GRID_CELL_SIZE, height: GRID_CELL_SIZE }}
                               >
                                 {/* Grid cell content - to be populated later */}
                               </div>
                             ))}
+                            {/* Row label (binary) - to the right of the grid */}
+                            <div
+                              className="flex items-center justify-center text-xs font-mono text-white/70 ml-1"
+                              style={{ width: GRID_CELL_SIZE, height: GRID_CELL_SIZE }}
+                            >
+                              {rIdx.toString(2).padStart(Math.ceil(Math.log2(MAX_ROWS || 1)), '0')}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -902,18 +1135,30 @@ const App: React.FC = () => {
                   );
                 })}
 
-                {/* Add Wire Button - below bottom-most wire, aligned with qubit labels */}
-                <div className="flex items-center mt-2" style={{ height: ROW_HEIGHT }}>
-                  <div className="w-12 flex justify-center">
-                    <button
-                      onClick={handleAddRow}
-                      disabled={rows >= MAX_ROWS}
-                      className="w-8 h-8 border-2 border-white hover:bg-white hover:text-black transition-colors text-sm font-bold disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-white"
-                    >
-                      +
-                    </button>
+                {/* Column labels for the grid (binary, below grid) */}
+                {hasRun && populatedColCount > 0 && (
+                  <div className="flex items-start" style={{ height: GRID_CELL_SIZE / 2 }}>
+                    {/* Spacer for qubit label */}
+                    <div className="w-12"></div>
+                    {/* Spacer for wire and gates */}
+                    <div style={{ width: displayColCount * CELL_WIDTH + CELL_WIDTH }}></div>
+                    {/* Spacer for percentage box + Bloch sphere + gaps */}
+                    <div className="ml-4" style={{ width: GRID_CELL_SIZE * 2 + 8 }}></div>
+                    {/* Column labels with gap matching grid */}
+                    <div className="flex ml-4 gap-1">
+                      {Array.from({ length: populatedColCount }).map((_, colIdx) => (
+                        <div
+                          key={`col-label-${colIdx}`}
+                          className="flex items-start justify-center text-xs font-mono text-white/70"
+                          style={{ width: GRID_CELL_SIZE }}
+                        >
+                          {colIdx.toString(2).padStart(Math.ceil(Math.log2(populatedColCount || 1)), '0')}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
+
               </div>
             </div>
 
@@ -927,6 +1172,16 @@ const App: React.FC = () => {
             onAddCustomGate={handleAddCustomGate}
           />
         </div>
+
+        {/* Right: Algorithm Templates Sidebar */}
+        <AlgorithmSidebar
+          onHoverTemplate={setHoveredTemplate}
+          onDragStart={setDraggingTemplate}
+          onDragEnd={() => {
+            setDraggingTemplate(null);
+            setTemplateDragHover(null);
+          }}
+        />
 
       </div>
 

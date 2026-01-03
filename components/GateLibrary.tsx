@@ -14,9 +14,9 @@ interface GateLibraryProps {
 }
 
 // Sub-library categories
-type SubLibrary = 'Standard' | 'Advanced' | 'Formulaic' | 'Arithmetic' | 'Visualization' | 'Custom';
+type SubLibrary = 'Standard' | 'Formulaic' | 'Arithmetic' | 'Visualization' | 'Custom';
 
-const SUB_LIBRARIES: SubLibrary[] = ['Standard', 'Advanced', 'Formulaic', 'Arithmetic', 'Visualization', 'Custom'];
+const SUB_LIBRARIES: SubLibrary[] = ['Standard', 'Formulaic', 'Arithmetic', 'Visualization', 'Custom'];
 
 // Formulaic sub-library gates (parameterized gates that prompt for angle):
 // Col 1: RX, RY, RZ
@@ -24,25 +24,21 @@ const FORMULAIC_GATE_COLUMNS: GateType[][] = [
   [GateType.RX, GateType.RY, GateType.RZ],
 ];
 
-// Standard sub-library gates (top to bottom, left to right):
+// Standard sub-library gates (merged with Advanced):
 // Col 1: X, Y, Z, H
 // Col 2: CTRL, ANTI-CTRL, CNOT, CCX
 // Col 3: SWAP, MEASURE
+// Col 4: Rv, T, CZ
+// Col 5: S, √Y, √X
+// Col 6: S†, √Y†, √X†
+// Col 7: RX(π/2), RX(π/4), RX(π/8), RX(π/12)
+// Col 8: RY(π/2), RY(π/4), RY(π/8), RY(π/12)
+// Col 9: RZ(π/2), RZ(π/4), RZ(π/8), RZ(π/12)
+// Col 10: XC, XA, YC, YA
 const STANDARD_GATE_COLUMNS: GateType[][] = [
   [GateType.X, GateType.Y, GateType.Z, GateType.H],
   [GateType.CONTROL, GateType.ANTI_CONTROL, GateType.CX, GateType.CCX],
   [GateType.SWAP, GateType.MEASURE],
-];
-
-// Advanced sub-library gates:
-// Col 1: Rv, T, CZ
-// Col 2: S, √Y, √X
-// Col 3: S†, √Y†, √X†
-// Col 4: RX(π/2), RX(π/4), RX(π/8), RX(π/12)
-// Col 5: RY(π/2), RY(π/4), RY(π/8), RY(π/12)
-// Col 6: RZ(π/2), RZ(π/4), RZ(π/8), RZ(π/12)
-// Col 7: XC, XA, YC, YA
-const ADVANCED_GATE_COLUMNS: GateType[][] = [
   [GateType.REVERSE, GateType.T, GateType.CZ],
   [GateType.S, GateType.SQRT_Y, GateType.SQRT_X],
   [GateType.SDG, GateType.SQRT_Y_DG, GateType.SQRT_X_DG],
@@ -140,8 +136,6 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
     switch (activeSubLibrary) {
       case 'Standard':
         return renderGateColumns(STANDARD_GATE_COLUMNS);
-      case 'Advanced':
-        return renderGateColumns(ADVANCED_GATE_COLUMNS);
       case 'Formulaic':
         return renderGateColumns(FORMULAIC_GATE_COLUMNS);
       case 'Arithmetic':
@@ -160,12 +154,12 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
     >
       {/* Header with label and sub-library tabs */}
       <div className="flex items-center gap-4 mb-3">
-        <span className="text-sm font-bold text-white uppercase">
+        <span className="text-sm font-bold text-white uppercase shrink-0">
           Gate Library
         </span>
 
         {/* Sub-library toggle buttons */}
-        <div className="flex gap-1">
+        <div className="flex gap-1 shrink-0">
           {SUB_LIBRARIES.map((lib) => (
             <button
               key={lib}
@@ -182,8 +176,10 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
         </div>
       </div>
 
-      {/* Sub-library content */}
-      {renderSubLibraryContent()}
+      {/* Sub-library content with horizontal scroll */}
+      <div className="overflow-x-auto">
+        {renderSubLibraryContent()}
+      </div>
     </div>
   );
 };

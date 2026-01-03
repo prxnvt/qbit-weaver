@@ -1,5 +1,4 @@
 import { CircuitGrid, Cell, GateType, GateParams } from '../types';
-import { INITIAL_COLS } from '../constants';
 
 export interface AlgorithmTemplate {
   id: string;
@@ -29,9 +28,9 @@ const createGrid = (
   numQubits: number,
   gates: { row: number; col: number; gate: GateType; params?: GateParams }[]
 ): CircuitGrid => {
-  // Find max column used
+  // Find max column used - only use columns that are actually populated
   const maxCol = Math.max(...gates.map(g => g.col), 0);
-  const numCols = Math.max(maxCol + 1, INITIAL_COLS);
+  const numCols = maxCol + 1;
 
   // Create empty grid
   const grid: CircuitGrid = Array(numQubits)
@@ -49,7 +48,43 @@ const createGrid = (
     }
   }
 
-  return grid;
+  // Remove empty columns (columns with no gates)
+  return compactGrid(grid);
+};
+
+// Helper to remove empty columns from a grid
+const compactGrid = (grid: CircuitGrid): CircuitGrid => {
+  if (grid.length === 0 || grid[0].length === 0) return grid;
+
+  const numCols = grid[0].length;
+  const populatedCols: number[] = [];
+
+  // Find columns that have at least one gate
+  for (let c = 0; c < numCols; c++) {
+    const hasGate = grid.some(row => row[c]?.gate !== null);
+    if (hasGate) {
+      populatedCols.push(c);
+    }
+  }
+
+  if (populatedCols.length === numCols) {
+    // No empty columns to remove
+    return grid;
+  }
+
+  // Create new compacted grid
+  const newGrid: CircuitGrid = grid.map((row, rIdx) =>
+    populatedCols.map((oldCol, newCol) => {
+      const oldCell = row[oldCol];
+      // Update params that contain column references (reverseSpan refers to rows, not cols)
+      return {
+        ...oldCell,
+        id: `cell-${rIdx}-${newCol}`,
+      };
+    })
+  );
+
+  return newGrid;
 };
 
 // ============================================================================
@@ -255,6 +290,7 @@ export function parseAsciiCircuit(diagram: string): GatePlacement[] {
 // Create a grid from ASCII diagram
 export function gridFromAscii(diagram: string, numQubits: number): CircuitGrid {
   const placements = parseAsciiCircuit(diagram);
+  // createGrid already calls compactGrid, so empty columns are removed
   return createGrid(numQubits, placements);
 }
 
