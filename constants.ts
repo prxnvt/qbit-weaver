@@ -673,5 +673,5 @@ export const GATE_DEFS: Partial<Record<GateType, GateDef>> = {
 };
 
 export const INITIAL_ROWS = 3;
-export const INITIAL_COLS = 15;
+export const INITIAL_COLS = 10;
 export const MAX_ROWS = 8;

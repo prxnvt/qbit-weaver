@@ -7,7 +7,7 @@ import { BlochSphere } from './components/BlochSphere';
 import { AngleInput } from './components/AngleInput';
 import { CustomGateDialog } from './components/CustomGateDialog';
 import { LoadDropdown } from './components/LoadDropdown';
-import { runCircuitWithMeasurements, getBlochVector, cAbsSq, validateCircuit, ValidationError } from './utils/quantum';
+import { runCircuitWithMeasurements, getBlochVector, validateCircuit, ValidationError } from './utils/quantum';
 import { AlgorithmTemplate } from './data/algorithms';
 
 // All gates that span multiple rows (for rendering/deletion purposes)
@@ -58,9 +58,8 @@ const App: React.FC = () => {
   } | null>(null);
   const [hoveredReverseGate, setHoveredReverseGate] = useState<{ col: number; anchorRow: number } | null>(null);
 
-  // Refs for synchronized scrolling
+  // Ref for circuit scrolling
   const circuitScrollRef = useRef<HTMLDivElement>(null);
-  const stateScrollRef = useRef<HTMLDivElement>(null);
 
   const [grid, setGrid] = useState<CircuitGrid>(() => {
     return Array(INITIAL_ROWS).fill(null).map((_, r) =>
@@ -71,32 +70,26 @@ const App: React.FC = () => {
     );
   });
 
-  // Sync scroll between circuit and state panels
-  useEffect(() => {
-    const circuitEl = circuitScrollRef.current;
-    const stateEl = stateScrollRef.current;
-    if (!circuitEl || !stateEl) return;
-
-    const syncCircuitToState = () => {
-      if (stateEl) stateEl.scrollTop = circuitEl.scrollTop;
-    };
-    const syncStateToCircuit = () => {
-      if (circuitEl) circuitEl.scrollTop = stateEl.scrollTop;
-    };
-
-    circuitEl.addEventListener('scroll', syncCircuitToState);
-    stateEl.addEventListener('scroll', syncStateToCircuit);
-
-    return () => {
-      circuitEl.removeEventListener('scroll', syncCircuitToState);
-      stateEl.removeEventListener('scroll', syncStateToCircuit);
-    };
-  }, []);
 
   // Validate circuit whenever it changes
   useEffect(() => {
     const errors = validateCircuit(grid);
     setValidationErrors(errors);
+  }, [grid]);
+
+  // Calculate display column count: max(rightmost populated column + 1, INITIAL_COLS)
+  // But always show at least as many columns as exist in the grid (for when extending)
+  const displayColCount = React.useMemo(() => {
+    let rightmostPopulated = -1;
+    for (let c = grid[0].length - 1; c >= 0; c--) {
+      if (grid.some(row => row[c]?.gate !== null)) {
+        rightmostPopulated = c;
+        break;
+      }
+    }
+    const minCols = Math.max(rightmostPopulated + 1, INITIAL_COLS);
+    // Always show all columns that exist in the grid
+    return Math.max(minCols, grid[0]?.length ?? INITIAL_COLS);
   }, [grid]);
 
   // Check if circuit is valid (no errors)
@@ -129,15 +122,27 @@ const App: React.FC = () => {
 
   const handleAddRow = () => {
     if (rows >= MAX_ROWS) return;
+    const currentCols = grid[0]?.length ?? INITIAL_COLS;
     setGrid(prev => [
       ...prev,
-      Array(INITIAL_COLS).fill(null).map((_, c) => ({
+      Array(currentCols).fill(null).map((_, c) => ({
         gate: null,
         id: `cell-${rows}-${c}`
       }))
     ]);
     setRows(prev => prev + 1);
   };
+
+  // Add a single column to the right of the grid
+  const addColumn = useCallback(() => {
+    setGrid(prev => {
+      const currentCols = prev[0]?.length ?? 0;
+      return prev.map((row, rIdx) => [
+        ...row,
+        { gate: null, id: `cell-${rIdx}-${currentCols}` }
+      ]);
+    });
+  }, []);
 
   const handleDrop = useCallback((row: number, dropCol: number, type: GateType, params?: GateParams) => {
     setGrid(prev => {
@@ -474,22 +479,6 @@ const App: React.FC = () => {
     });
   };
 
-  // Calculate measurement probabilities for display
-  const getMeasurementProbabilities = () => {
-    if (!finalState || populatedRows.length === 0) return [];
-    const probs: { state: string; prob: number }[] = [];
-    const numQubits = populatedRows.length;
-    for (let i = 0; i < finalState.length; i++) {
-      const prob = cAbsSq(finalState[i]);
-      if (prob > 0.001) {
-        const stateLabel = `|${i.toString(2).padStart(numQubits, '0')}⟩`;
-        probs.push({ state: stateLabel, prob });
-      }
-    }
-    return probs.sort((a, b) => b.prob - a.prob).slice(0, 4); // Top 4
-  };
-
-
   // Helper to get styling for spanning gates based on type
   const getSpanningGateStyle = (gateType: GateType) => {
     // Input markers - dashed borders (A is white, others colored)
@@ -703,8 +692,6 @@ const App: React.FC = () => {
     return lines;
   };
 
-  const measurementProbs = getMeasurementProbabilities();
-
   return (
     <div className="flex flex-col h-screen w-screen bg-black text-white overflow-hidden font-mono font-bold">
 
@@ -776,11 +763,11 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Layout - Grid: [Circuit + GateLibrary] | [Right Sidebar] */}
-      <div className="flex-1 grid grid-cols-[1fr_240px] grid-rows-1 min-h-0 overflow-hidden">
+      {/* Main Layout - Circuit Area + Gate Library */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
-        {/* Left Column: Circuit Area + Gate Library */}
-        <div className="flex flex-col h-full overflow-hidden border-r-2 border-white">
+        {/* Circuit Area + Gate Library */}
+        <div className="flex flex-col h-full overflow-hidden">
 
           {/* Circuit Area - Scrollable, takes remaining space */}
           <section className="flex-1 relative bg-black overflow-auto min-h-0">
@@ -788,10 +775,10 @@ const App: React.FC = () => {
             {/* Circuit Grid */}
             <div ref={circuitScrollRef} className="py-8 pl-4 pr-8 relative" id="circuit-container">
             {/* Circuit Wires and Gates */}
-            <div className="min-w-[800px] relative">
+            <div className="relative inline-block min-w-full">
               {/* Column Connectors Layer */}
               <div className="absolute inset-0 pointer-events-none">
-                {Array.from({ length: grid[0]?.length ?? 0 }).map((_, c) => (
+                {Array.from({ length: displayColCount }).map((_, c) => (
                   <div key={`col-conn-${c}`} className="absolute top-0 bottom-0" style={{ left: `${c * CELL_WIDTH + 48}px`, width: CELL_WIDTH }}>
                     {renderColumnConnectors(c)}
                   </div>
@@ -800,58 +787,120 @@ const App: React.FC = () => {
 
               {/* Qubit Rows */}
               <div className="pt-4">
-                {grid.map((row, rIdx) => (
-                  <div key={`row-${rIdx}`} className="flex items-center group relative" style={{ height: ROW_HEIGHT }}>
-                    {/* Qubit Label */}
-                    <div className="w-12 text-left font-mono font-bold text-sm text-white select-none">
-                      |q{rIdx}⟩
-                    </div>
+                {grid.map((row, rIdx) => {
+                  // Display columns based on computed displayColCount
+                  const displayCols = row.slice(0, displayColCount);
+                  const rowDisplayColCount = displayCols.length;
 
-                    {/* Wire and Gates */}
-                    <div className="flex-1 relative flex items-center">
-                      {/* Wire Line */}
-                      <div className="absolute inset-0 flex items-center pointer-events-none">
-                        <div className="w-full h-0.5 bg-white"></div>
+                  // Get Bloch vector for this row (post-run only)
+                  const filteredIdx = populatedRows.indexOf(rIdx);
+                  const isPopulated = filteredIdx !== -1;
+                  const [bx, by, bz] = (hasRun && finalState && isPopulated)
+                    ? getBlochVector(finalState, filteredIdx, populatedRows.length)
+                    : [0, 0, 1];
+                  const prob1Pct = hasRun ? ((1 - bz) / 2 * 100).toFixed(0) : '0';
+
+                  return (
+                    <div key={`row-${rIdx}`} className="flex items-center group relative" style={{ height: ROW_HEIGHT }}>
+                      {/* Qubit Label */}
+                      <div className="w-12 text-left font-mono font-bold text-sm text-white select-none">
+                        |q{rIdx}⟩
                       </div>
 
-                      {/* Gate Cells */}
-                      <div className="flex relative z-10">
-                        {row.map((cell, cIdx) => {
-                          const isRowHighlighted = dragHover?.row === rIdx;
-                          const isColHighlighted = dragHover?.col === cIdx;
-                          const isHovered = isRowHighlighted && isColHighlighted;
+                      {/* Wire and Gates */}
+                      <div className="relative flex items-center">
+                        {/* Wire Line - spans only the gate cells */}
+                        <div
+                          className="absolute top-1/2 left-0 h-0.5 bg-white pointer-events-none"
+                          style={{
+                            width: rowDisplayColCount * CELL_WIDTH,
+                            transform: 'translateY(-50%)'
+                          }}
+                        />
 
-                          return (
-                            <div
-                              key={cell.id}
-                              onDragOver={(e) => handleDragOver(e, rIdx, cIdx)}
-                              onDragLeave={handleDragLeave}
-                              onDrop={(e) => handleDropEvent(e, rIdx, cIdx)}
-                              onContextMenu={(e) => clearCell(rIdx, cIdx, e)}
-                              className={`flex items-center justify-center relative transition-colors ${
-                                isHovered
-                                  ? 'bg-white/20'
-                                  : (isRowHighlighted || isColHighlighted)
-                                    ? 'bg-white/10'
-                                    : ''
-                              }`}
-                              style={{ height: ROW_HEIGHT, width: CELL_WIDTH }}
-                            >
-                              {/* Regular gates (non-spanning) */}
-                              {cell.gate && !(ALL_SPANNING_GATE_TYPES as readonly GateType[]).includes(cell.gate) && (
-                                <Gate type={cell.gate} onHover={setHoveredGate} params={cell.params} cellId={cell.id} />
-                              )}
-                              {/* Render spanning gate anchor (REVERSE, arithmetic spanning, input markers) */}
-                              {cell.gate && (ALL_SPANNING_GATE_TYPES as readonly GateType[]).includes(cell.gate) && !cell.params?.isSpanContinuation && cell.params?.reverseSpan && (
-                                renderSpanningGate(cIdx, cell.gate, cell.params.reverseSpan)
-                              )}
+                        {/* Gate Cells */}
+                        <div className="flex relative z-10">
+                          {displayCols.map((cell, cIdx) => {
+                            const isRowHighlighted = dragHover?.row === rIdx;
+                            const isColHighlighted = dragHover?.col === cIdx;
+                            const isHovered = isRowHighlighted && isColHighlighted;
+
+                            return (
+                              <div
+                                key={cell.id}
+                                onDragOver={(e) => handleDragOver(e, rIdx, cIdx)}
+                                onDragLeave={handleDragLeave}
+                                onDrop={(e) => handleDropEvent(e, rIdx, cIdx)}
+                                onContextMenu={(e) => clearCell(rIdx, cIdx, e)}
+                                className={`flex items-center justify-center relative transition-colors ${
+                                  isHovered
+                                    ? 'bg-white/20'
+                                    : (isRowHighlighted || isColHighlighted)
+                                      ? 'bg-white/10'
+                                      : ''
+                                }`}
+                                style={{ height: ROW_HEIGHT, width: CELL_WIDTH }}
+                              >
+                                {/* Regular gates (non-spanning) */}
+                                {cell.gate && !(ALL_SPANNING_GATE_TYPES as readonly GateType[]).includes(cell.gate) && (
+                                  <Gate type={cell.gate} onHover={setHoveredGate} params={cell.params} cellId={cell.id} />
+                                )}
+                                {/* Render spanning gate anchor (REVERSE, arithmetic spanning, input markers) */}
+                                {cell.gate && (ALL_SPANNING_GATE_TYPES as readonly GateType[]).includes(cell.gate) && !cell.params?.isSpanContinuation && cell.params?.reverseSpan && (
+                                  renderSpanningGate(cIdx, cell.gate, cell.params.reverseSpan)
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Extension drop zone - between wire end and output */}
+                        <div
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'copy';
+                            addColumn();
+                          }}
+                          className="shrink-0"
+                          style={{ width: CELL_WIDTH, height: ROW_HEIGHT }}
+                        />
+
+                        {/* Post-run: Percentage + Bloch Sphere */}
+                        {hasRun && (
+                          <div className="flex items-center ml-4">
+                            {/* Percentage of |1⟩ */}
+                            <div className="text-xs font-mono text-white mr-2 w-10 text-right">
+                              {prob1Pct}%
                             </div>
-                          );
-                        })}
+                            {/* Bloch Sphere */}
+                            <BlochSphere
+                              x={bx} y={by} z={bz}
+                              size={40}
+                              row={rIdx}
+                              col={-1}
+                              onHover={setHoveredInfo}
+                            />
+                          </div>
+                        )}
+
+                        {/* Post-run: n×n grid cells for this row */}
+                        {hasRun && (
+                          <div className="flex items-center ml-4">
+                            {Array.from({ length: populatedRows.length }).map((_, colIdx) => (
+                              <div
+                                key={`grid-${rIdx}-${colIdx}`}
+                                className="border border-white/30 flex items-center justify-center"
+                                style={{ width: 40, height: 40 }}
+                              >
+                                {/* Grid cell content - to be populated later */}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* Add Wire Button - below bottom-most wire, aligned with qubit labels */}
                 <div className="flex items-center mt-2" style={{ height: ROW_HEIGHT }}>
@@ -879,101 +928,6 @@ const App: React.FC = () => {
           />
         </div>
 
-        {/* Right Column: System State (full height) */}
-        <aside className="bg-black flex flex-col">
-          {/* Bloch Spheres - Scrollable, synced with circuit */}
-          <div ref={stateScrollRef} className="flex-1 overflow-auto py-8 px-4" id="system-state-container">
-            <div className="pt-4">
-            {Array.from({ length: rows }).map((_, rIdx) => {
-              // Check if this row was populated (had gates)
-              const filteredIdx = populatedRows.indexOf(rIdx);
-              const isPopulated = filteredIdx !== -1;
-
-              // Get Bloch vector - use filtered index for populated rows, default for empty
-              const [bx, by, bz] = (hasRun && finalState && isPopulated)
-                ? getBlochVector(finalState, filteredIdx, populatedRows.length)
-                : [0, 0, 1]; // Default |0⟩ state for unpopulated wires or before run
-
-              // Calculate probabilities from Bloch vector
-              const prob0 = (1 + bz) / 2;
-              const prob1 = (1 - bz) / 2;
-              const prob0Pct = (prob0 * 100).toFixed(0);
-
-              // Calculate the dominant state for display
-              const getDominantState = () => {
-                if (prob0 > 0.99) return '|0⟩';
-                if (prob1 > 0.99) return '|1⟩';
-
-                // For superposition states, check for common values
-                const sqrtHalf = 1 / Math.sqrt(2);
-                const theta = Math.acos(Math.max(-1, Math.min(1, bz)));
-                const phi = Math.atan2(by, bx);
-
-                const alpha = Math.cos(theta / 2);
-                const betaMag = Math.sin(theta / 2);
-
-                // Check for |+⟩ = (|0⟩ + |1⟩)/√2 (theta = π/2, phi = 0)
-                if (Math.abs(alpha - sqrtHalf) < 0.05 && Math.abs(betaMag - sqrtHalf) < 0.05) {
-                  if (Math.abs(phi) < 0.1) return '|+⟩';
-                  if (Math.abs(phi - Math.PI) < 0.1 || Math.abs(phi + Math.PI) < 0.1) return '|−⟩';
-                  if (Math.abs(phi - Math.PI/2) < 0.1) return '|i⟩';
-                  if (Math.abs(phi + Math.PI/2) < 0.1) return '|−i⟩';
-                }
-
-                // Generic superposition
-                return 'sup';
-              };
-
-              const stateLabel = getDominantState();
-
-              return (
-                <div
-                  key={`bloch-${rIdx}`}
-                  className={`flex items-center ${hasRun && !isPopulated ? 'opacity-30' : ''}`}
-                  style={{ height: ROW_HEIGHT }}
-                >
-                  <BlochSphere
-                    x={bx} y={by} z={bz}
-                    size={40}
-                    row={rIdx}
-                    col={-1}
-                    onHover={setHoveredInfo}
-                  />
-                  <div className="ml-3 flex-1">
-                    <div className="text-[10px] font-mono text-white">|q{rIdx}⟩</div>
-                    <div className="text-xs font-bold text-white">{prob0Pct}% {stateLabel}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          </div>
-
-          {/* Measurement Probabilities */}
-          <div className="p-4 border-t-2 border-white bg-black shrink-0">
-            <div className="text-[10px] text-white mb-2 font-bold uppercase">Measurement Probabilities</div>
-            {hasRun && measurementProbs.length > 0 ? (
-              <>
-                <div className="w-full h-3 border-2 border-white flex overflow-hidden">
-                  {measurementProbs.map((p, i) => (
-                    <div
-                      key={p.state}
-                      className={`h-full ${i === 0 ? 'bg-white' : i === 1 ? 'bg-gray-500' : 'bg-gray-700'}`}
-                      style={{ width: `${p.prob * 100}%` }}
-                    />
-                  ))}
-                </div>
-                <div className="flex justify-between mt-1 text-[9px] text-white font-mono font-bold">
-                  {measurementProbs.slice(0, 2).map(p => (
-                    <span key={p.state}>{p.state}: {(p.prob * 100).toFixed(0)}%</span>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="w-full h-3 border-2 border-white bg-black"></div>
-            )}
-          </div>
-        </aside>
       </div>
 
       {/* Angle Input Popup */}
