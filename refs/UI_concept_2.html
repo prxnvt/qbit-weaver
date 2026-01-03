@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Quantum Circuit Editor</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        black: "#000000",
+                        white: "#FFFFFF",
+                        red: "#FF0000",
+                        gray: "#333333",
+                    },
+                    fontFamily: {
+                        mono: ["JetBrains Mono", "monospace"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0", // Sharp corners generally fit this aesthetic better, or keep slightly rounded
+                    },
+                },
+            },
+        };
+    </script>
+<style>
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: black;
+            color: white;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: black;
+            border-left: 1px solid white;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: white;
+            border: 2px solid black;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ccc;
+        }
+        .wire-bg {
+            background-image: linear-gradient(to right, #ffffff 50%, transparent 50%);
+            background-size: 10px 1px;
+            background-repeat: repeat-x;
+        }
+    </style>
+</head>
+<body class="bg-black text-white h-screen flex overflow-hidden antialiased font-bold">
+<div class="flex-1 flex flex-col h-full overflow-hidden">
+<header class="h-14 border-b-2 border-white bg-black flex items-center px-4 justify-between shrink-0 z-20">
+<div class="flex items-center space-x-4">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-3xl font-bold">hub</span>
+<h1 class="font-bold text-lg tracking-tight uppercase">QCVO</h1>
+</div>
+<div class="h-6 w-0.5 bg-white mx-2"></div>
+<div class="flex items-center space-x-3">
+<button class="flex items-center space-x-2 px-3 py-1.5 border-2 border-white hover:bg-white hover:text-black transition-colors text-sm font-bold uppercase">
+<span class="material-symbols-outlined text-base font-bold">play_arrow</span>
+<span>Run</span>
+</button>
+<button class="p-2 border-2 border-transparent hover:border-white rounded-none transition-colors">
+<span class="material-symbols-outlined text-xl font-bold">settings</span>
+</button>
+<button class="p-2 border-2 border-transparent hover:border-white rounded-none transition-colors">
+<span class="material-symbols-outlined text-xl font-bold">help</span>
+</button>
+</div>
+<div class="h-6 w-0.5 bg-white mx-2"></div>
+<nav class="flex space-x-1">
+<button class="px-3 py-1.5 text-sm font-bold hover:bg-white hover:text-black transition-colors uppercase">File</button>
+<button class="px-3 py-1.5 text-sm font-bold hover:bg-white hover:text-black transition-colors uppercase">Edit</button>
+<button class="px-3 py-1.5 text-sm font-bold hover:bg-white hover:text-black transition-colors uppercase">View</button>
+</nav>
+</div>
+<div class="flex items-center space-x-3">
+</div>
+</header>
+<main class="flex-1 flex overflow-hidden">
+<section class="flex-1 flex flex-col relative bg-black border-r-2 border-white overflow-hidden">
+<div class="flex-1 overflow-auto p-8 relative" id="circuit-container">
+<div class="absolute inset-0 pointer-events-none opacity-20" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 20px 20px;">
+</div>
+<div class="min-w-[800px] space-y-12 pt-4">
+<div class="flex items-center group relative h-10">
+<div class="w-16 text-right pr-4 font-mono font-bold text-sm text-white select-none">|q0⟩</div>
+<div class="flex-1 relative flex items-center">
+<div class="absolute inset-0 flex items-center pointer-events-none">
+<div class="w-full h-0.5 bg-white"></div>
+</div>
+</div>
+<div class="absolute right-[-14rem] z-20 flex items-center hidden">
+<div class="relative w-12 h-12 rounded-full border-2 border-white bg-black flex items-center justify-center">
+<div class="absolute w-full h-0.5 bg-white top-1/2 left-0"></div>
+<div class="absolute h-full w-0.5 bg-white top-0 left-1/2"></div>
+<div class="absolute w-10 h-4 border-2 border-white rounded-[100%] top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 opacity-100"></div>
+<div class="absolute top-1/2 left-1/2 w-[2px] h-[45%] bg-red origin-bottom rotate-[45deg] -translate-x-1/2 -translate-y-full rounded-full"></div>
+<div class="absolute w-2 h-2 bg-red rounded-full top-[15%] right-[15%]"></div>
+</div>
+<div class="ml-4 w-24">
+<div class="text-xs font-mono text-white">|000⟩</div>
+<div class="text-sm font-bold text-white">100%</div>
+</div>
+</div>
+</div>
+<div class="flex items-center group relative h-10">
+<div class="w-16 text-right pr-4 font-mono font-bold text-sm text-white select-none">|q1⟩</div>
+<div class="flex-1 relative flex items-center">
+<div class="absolute inset-0 flex items-center pointer-events-none">
+<div class="w-full h-0.5 bg-white"></div>
+</div>
+</div>
+<div class="absolute right-[-14rem] z-20 flex items-center opacity-50 hidden">
+<div class="relative w-12 h-12 rounded-full border-2 border-white bg-black flex items-center justify-center">
+<div class="absolute w-full h-0.5 bg-white top-1/2 left-0"></div>
+<div class="absolute h-full w-0.5 bg-white top-0 left-1/2"></div>
+<div class="absolute w-10 h-4 border-2 border-white rounded-[100%] top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2"></div>
+<div class="absolute top-1/2 left-1/2 w-[2px] h-[45%] bg-white origin-bottom -translate-x-1/2 -translate-y-full rounded-full"></div>
+</div>
+<div class="ml-4 w-24">
+<div class="text-xs font-mono text-white">|001⟩</div>
+<div class="text-sm font-bold text-white">0%</div>
+</div>
+</div>
+</div>
+<div class="flex items-center group relative h-10">
+<div class="w-16 text-right pr-4 font-mono font-bold text-sm text-white select-none">|q2⟩</div>
+<div class="flex-1 relative flex items-center">
+<div class="absolute inset-0 flex items-center pointer-events-none">
+<div class="w-full h-0.5 bg-white"></div>
+</div>
+</div>
+<div class="absolute right-[-14rem] z-20 flex items-center opacity-50 hidden">
+<div class="relative w-12 h-12 rounded-full border-2 border-white bg-black flex items-center justify-center">
+<div class="absolute w-full h-0.5 bg-white top-1/2 left-0"></div>
+<div class="absolute h-full w-0.5 bg-white top-0 left-1/2"></div>
+<div class="absolute w-10 h-4 border-2 border-white rounded-[100%] top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2"></div>
+<div class="absolute top-1/2 left-1/2 w-[2px] h-[45%] bg-white origin-bottom -translate-x-1/2 -translate-y-full rounded-full"></div>
+</div>
+<div class="ml-4 w-24">
+<div class="text-xs font-mono text-white">|010⟩</div>
+<div class="text-sm font-bold text-white">0%</div>
+</div>
+</div>
+</div>
+<div class="flex items-center group relative h-10">
+<div class="w-16 text-right pr-4 font-mono font-bold text-sm text-white select-none">|q3⟩</div>
+<div class="flex-1 relative flex items-center">
+<div class="absolute inset-0 flex items-center pointer-events-none">
+<div class="w-full h-0.5 bg-white"></div>
+</div>
+</div>
+<div class="absolute right-[-14rem] z-20 flex items-center hidden">
+<div class="relative w-12 h-12 rounded-full border-2 border-white bg-black flex items-center justify-center">
+<div class="absolute w-full h-0.5 bg-white top-1/2 left-0"></div>
+<div class="absolute h-full w-0.5 bg-white top-0 left-1/2"></div>
+<div class="absolute w-10 h-4 border-2 border-white rounded-[100%] top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 opacity-100"></div>
+<div class="absolute top-1/2 left-1/2 w-[2px] h-[45%] bg-red origin-bottom rotate-[120deg] -translate-x-1/2 -translate-y-full rounded-full"></div>
+<div class="absolute w-2 h-2 bg-red rounded-full bottom-[15%] right-[20%]"></div>
+</div>
+<div class="ml-4 w-24">
+<div class="text-xs font-mono text-white">|011⟩</div>
+<div class="text-sm font-bold text-white">50% <span class="text-xs text-red font-bold ml-1">i</span></div>
+</div>
+</div>
+</div>
+<div class="flex items-center group relative h-10">
+<div class="w-16 text-right pr-4 font-mono font-bold text-sm text-white select-none">|q4⟩</div>
+<div class="flex-1 relative flex items-center">
+<div class="absolute inset-0 flex items-center pointer-events-none">
+<div class="w-full h-0.5 bg-white"></div>
+</div>
+</div>
+<div class="absolute right-[-14rem] z-20 flex items-center opacity-50 hidden">
+<div class="relative w-12 h-12 rounded-full border-2 border-white bg-black flex items-center justify-center">
+<div class="absolute w-full h-0.5 bg-white top-1/2 left-0"></div>
+<div class="absolute h-full w-0.5 bg-white top-0 left-1/2"></div>
+<div class="absolute w-10 h-4 border-2 border-white rounded-[100%] top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2"></div>
+<div class="absolute top-1/2 left-1/2 w-[2px] h-[45%] bg-white origin-bottom -translate-x-1/2 -translate-y-full rounded-full"></div>
+</div>
+<div class="ml-4 w-24">
+<div class="text-xs font-mono text-white">|100⟩</div>
+<div class="text-sm font-bold text-white">0%</div>
+</div>
+</div>
+</div>
+<div class="flex items-center group relative h-10">
+<div class="w-16 text-right pr-4 font-mono font-bold text-sm text-white select-none">|q5⟩</div>
+<div class="flex-1 relative flex items-center">
+<div class="absolute inset-0 flex items-center pointer-events-none">
+<div class="w-full h-0.5 bg-white"></div>
+</div>
+</div>
+<div class="absolute right-[-14rem] z-20 flex items-center opacity-50 hidden">
+<div class="relative w-12 h-12 rounded-full border-2 border-white bg-black flex items-center justify-center">
+<div class="absolute w-full h-0.5 bg-white top-1/2 left-0"></div>
+<div class="absolute h-full w-0.5 bg-white top-0 left-1/2"></div>
+<div class="absolute w-10 h-4 border-2 border-white rounded-[100%] top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2"></div>
+<div class="absolute top-1/2 left-1/2 w-[2px] h-[45%] bg-white origin-bottom -translate-x-1/2 -translate-y-full rounded-full"></div>
+</div>
+<div class="ml-4 w-24">
+<div class="text-xs font-mono text-white">|101⟩</div>
+<div class="text-sm font-bold text-white">0%</div>
+</div>
+</div>
+</div>
+<div class="flex items-center group relative h-10">
+<div class="w-16 text-right pr-4 font-mono font-bold text-sm text-white select-none">|q6⟩</div>
+<div class="flex-1 relative flex items-center">
+<div class="absolute inset-0 flex items-center pointer-events-none">
+<div class="w-full h-0.5 bg-white"></div>
+</div>
+</div>
+<div class="absolute right-[-14rem] z-20 flex items-center opacity-50 hidden">
+<div class="relative w-12 h-12 rounded-full border-2 border-white bg-black flex items-center justify-center">
+<div class="absolute w-full h-0.5 bg-white top-1/2 left-0"></div>
+<div class="absolute h-full w-0.5 bg-white top-0 left-1/2"></div>
+<div class="absolute w-10 h-4 border-2 border-white rounded-[100%] top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2"></div>
+<div class="absolute top-1/2 left-1/2 w-[2px] h-[45%] bg-white origin-bottom -translate-x-1/2 -translate-y-full rounded-full"></div>
+</div>
+<div class="ml-4 w-24">
+<div class="text-xs font-mono text-white">|110⟩</div>
+<div class="text-sm font-bold text-white">0%</div>
+</div>
+</div>
+</div>
+<div class="flex items-center group relative h-10">
+<div class="w-16 text-right pr-4 font-mono font-bold text-sm text-white select-none">|q7⟩</div>
+<div class="flex-1 relative flex items-center">
+<div class="absolute inset-0 flex items-center pointer-events-none">
+<div class="w-full h-0.5 bg-white"></div>
+</div>
+</div>
+<div class="absolute right-[-14rem] z-20 flex items-center opacity-50 hidden">
+<div class="relative w-12 h-12 rounded-full border-2 border-white bg-black flex items-center justify-center">
+<div class="absolute w-full h-0.5 bg-white top-1/2 left-0"></div>
+<div class="absolute h-full w-0.5 bg-white top-0 left-1/2"></div>
+<div class="absolute w-10 h-4 border-2 border-white rounded-[100%] top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2"></div>
+<div class="absolute top-1/2 left-1/2 w-[2px] h-[45%] bg-white origin-bottom -translate-x-1/2 -translate-y-full rounded-full"></div>
+</div>
+<div class="ml-4 w-24">
+<div class="text-xs font-mono text-white">|111⟩</div>
+<div class="text-sm font-bold text-white">0%</div>
+</div>
+</div>
+</div>
+</div>
+<div class="absolute bottom-6 left-6 flex gap-2">
+<button class="flex items-center space-x-2 px-4 py-2 bg-black border-2 border-white hover:bg-white hover:text-black transition-colors text-sm font-bold uppercase">
+<span class="material-symbols-outlined text-base font-bold">add</span>
+<span>Add Wire</span>
+</button>
+<button class="flex items-center space-x-2 px-4 py-2 bg-black border-2 border-white hover:bg-white hover:text-black transition-colors text-sm font-bold uppercase">
+<span class="material-symbols-outlined text-base font-bold">bolt</span>
+<span>Optimize</span>
+</button>
+</div>
+<div class="absolute bottom-6 right-6">
+<button class="flex items-center space-x-2 px-4 py-2 bg-black border-2 border-white hover:bg-red hover:border-red hover:text-white transition-colors text-sm font-bold uppercase">
+<span class="material-symbols-outlined text-base font-bold">delete_forever</span>
+<span>Clear</span>
+</button>
+</div>
+</div>
+<div class="h-48 border-t-2 border-white bg-black p-6 z-10 overflow-y-auto">
+<div class="w-full">
+<h3 class="text-sm font-bold text-white uppercase tracking-wider mb-4 border-b border-white pb-1 inline-block">Gate Library</h3>
+<div class="grid grid-cols-2 gap-4">
+<div class="flex items-center space-x-3 group cursor-grab active:cursor-grabbing p-2 border border-transparent hover:border-white transition-colors">
+<div class="w-10 h-10 bg-black border-2 border-white group-hover:bg-white group-hover:text-black rounded-none flex items-center justify-center font-mono font-bold text-white transition-colors">X</div>
+<span class="text-xs font-bold text-white uppercase">Pauli-X</span>
+</div>
+<div class="flex items-center space-x-3 group cursor-grab active:cursor-grabbing p-2 border border-transparent hover:border-white transition-colors">
+<div class="w-10 h-10 bg-black border-2 border-white group-hover:bg-white group-hover:text-black rounded-none flex items-center justify-center font-mono font-bold text-white transition-colors">Y</div>
+<span class="text-xs font-bold text-white uppercase">Pauli-Y</span>
+</div>
+<div class="flex items-center space-x-3 group cursor-grab active:cursor-grabbing p-2 border border-transparent hover:border-white transition-colors">
+<div class="w-10 h-10 bg-black border-2 border-white group-hover:bg-white group-hover:text-black rounded-none flex items-center justify-center font-mono font-bold text-white transition-colors">Z</div>
+<span class="text-xs font-bold text-white uppercase">Pauli-Z</span>
+</div>
+<div class="flex items-center space-x-3 group cursor-grab active:cursor-grabbing p-2 border border-transparent hover:border-white transition-colors">
+<div class="w-10 h-10 bg-black border-2 border-white group-hover:bg-white group-hover:text-black rounded-none flex items-center justify-center font-mono font-bold text-white transition-colors">H</div>
+<span class="text-xs font-bold text-white uppercase">Hadamard</span>
+</div>
+<div class="flex items-center space-x-3 group cursor-grab active:cursor-grabbing p-2 border border-transparent hover:border-white transition-colors">
+<div class="w-10 h-10 bg-black border-2 border-white group-hover:bg-white group-hover:text-black rounded-none flex items-center justify-center font-mono font-bold text-white transition-colors">S</div>
+<span class="text-xs font-bold text-white uppercase">Phase (S)</span>
+</div>
+<div class="flex items-center space-x-3 group cursor-grab active:cursor-grabbing p-2 border border-transparent hover:border-white transition-colors">
+<div class="w-10 h-10 bg-black border-2 border-white group-hover:bg-white group-hover:text-black rounded-none flex items-center justify-center font-mono font-bold text-white transition-colors">T</div>
+<span class="text-xs font-bold text-white uppercase">π/8 (T)</span>
+</div>
+<div class="flex items-center space-x-3 group cursor-grab active:cursor-grabbing p-2 border border-transparent hover:border-white transition-colors">
+<div class="w-10 h-10 flex items-center justify-center bg-black border-2 border-white group-hover:bg-white group-hover:text-black transition-colors">
+<div class="w-4 h-4 bg-white group-hover:bg-black rounded-full transition-colors"></div>
+</div>
+<span class="text-xs font-bold text-white uppercase">Control</span>
+</div>
+<div class="flex items-center space-x-3 group cursor-grab active:cursor-grabbing p-2 border border-transparent hover:border-white transition-colors">
+<div class="w-10 h-10 bg-black border-2 border-white group-hover:bg-white group-hover:text-black rounded-none flex items-center justify-center font-mono font-bold text-white transition-colors">
+<span class="material-symbols-outlined text-xl font-bold">add_circle</span>
+</div>
+<span class="text-xs font-bold text-white uppercase">CNOT</span>
+</div>
+<div class="flex items-center space-x-3 group cursor-grab active:cursor-grabbing p-2 border border-transparent hover:border-white transition-colors">
+<div class="w-10 h-10 bg-black border-2 border-white group-hover:bg-white group-hover:text-black rounded-none flex items-center justify-center font-mono font-bold text-white transition-colors text-xs">
+<span class="material-symbols-outlined text-base font-bold">close</span>
+</div>
+<span class="text-xs font-bold text-white uppercase">Swap</span>
+</div>
+</div>
+</div>
+</div>
+</section></main>
+</div>
+<aside class="w-64 bg-black flex flex-col shrink-0 border-l-2 border-white h-full">
+<div class="h-14 border-b-2 border-white flex justify-between items-center bg-black px-4 shrink-0">
+<h2 class="text-xs font-bold text-white uppercase tracking-wider">System State</h2>
+<button class="text-white hover:text-gray-300">
+<span class="material-symbols-outlined text-sm font-bold">tune</span>
+</button>
+</div>
+<div class="flex-1 overflow-auto relative p-0" id="system-state-container">
+<div class="space-y-12 pt-12 pb-8 px-4">
+<div class="h-10 flex items-center">
+<div class="relative w-12 h-12 rounded-full border-2 border-white bg-black flex items-center justify-center shrink-0">
+<div class="absolute w-full h-0.5 bg-white top-1/2 left-0"></div>
+<div class="absolute h-full w-0.5 bg-white top-0 left-1/2"></div>
+<div class="absolute w-10 h-4 border-2 border-white rounded-[100%] top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 opacity-100"></div>
+<div class="absolute top-1/2 left-1/2 w-[2px] h-[45%] bg-red origin-bottom rotate-[45deg] -translate-x-1/2 -translate-y-full rounded-full"></div>
+<div class="absolute w-2 h-2 bg-red rounded-full top-[15%] right-[15%]"></div>
+</div>
+<div class="ml-4 flex-1">
+<div class="text-xs font-mono text-white">|000⟩</div>
+<div class="text-sm font-bold text-white">100%</div>
+</div>
+</div>
+<div class="h-10 flex items-center opacity-50">
+<div class="relative w-12 h-12 rounded-full border-2 border-white bg-black flex items-center justify-center shrink-0">
+<div class="absolute w-full h-0.5 bg-white top-1/2 left-0"></div>
+<div class="absolute h-full w-0.5 bg-white top-0 left-1/2"></div>
+<div class="absolute w-10 h-4 border-2 border-white rounded-[100%] top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2"></div>
+<div class="absolute top-1/2 left-1/2 w-[2px] h-[45%] bg-white origin-bottom -translate-x-1/2 -translate-y-full rounded-full"></div>
+</div>
+<div class="ml-4 flex-1">
+<div class="text-xs font-mono text-white">|001⟩</div>
+<div class="text-sm font-bold text-white">0%</div>
+</div>
+</div>
+<div class="h-10 flex items-center opacity-50">
+<div class="relative w-12 h-12 rounded-full border-2 border-white bg-black flex items-center justify-center shrink-0">
+<div class="absolute w-full h-0.5 bg-white top-1/2 left-0"></div>
+<div class="absolute h-full w-0.5 bg-white top-0 left-1/2"></div>
+<div class="absolute w-10 h-4 border-2 border-white rounded-[100%] top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2"></div>
+<div class="absolute top-1/2 left-1/2 w-[2px] h-[45%] bg-white origin-bottom -translate-x-1/2 -translate-y-full rounded-full"></div>
+</div>
+<div class="ml-4 flex-1">
+<div class="text-xs font-mono text-white">|010⟩</div>
+<div class="text-sm font-bold text-white">0%</div>
+</div>
+</div>
+<div class="h-10 flex items-center">
+<div class="relative w-12 h-12 rounded-full border-2 border-white bg-black flex items-center justify-center shrink-0">
+<div class="absolute w-full h-0.5 bg-white top-1/2 left-0"></div>
+<div class="absolute h-full w-0.5 bg-white top-0 left-1/2"></div>
+<div class="absolute w-10 h-4 border-2 border-white rounded-[100%] top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 opacity-100"></div>
+<div class="absolute top-1/2 left-1/2 w-[2px] h-[45%] bg-red origin-bottom rotate-[120deg] -translate-x-1/2 -translate-y-full rounded-full"></div>
+<div class="absolute w-2 h-2 bg-red rounded-full bottom-[15%] right-[20%]"></div>
+</div>
+<div class="ml-4 flex-1">
+<div class="text-xs font-mono text-white">|011⟩</div>
+<div class="text-sm font-bold text-white">50% <span class="text-xs text-red font-bold ml-1">i</span></div>
+</div>
+</div>
+<div class="h-10 flex items-center opacity-50">
+<div class="relative w-12 h-12 rounded-full border-2 border-white bg-black flex items-center justify-center shrink-0">
+<div class="absolute w-full h-0.5 bg-white top-1/2 left-0"></div>
+<div class="absolute h-full w-0.5 bg-white top-0 left-1/2"></div>
+<div class="absolute w-10 h-4 border-2 border-white rounded-[100%] top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2"></div>
+<div class="absolute top-1/2 left-1/2 w-[2px] h-[45%] bg-white origin-bottom -translate-x-1/2 -translate-y-full rounded-full"></div>
+</div>
+<div class="ml-4 flex-1">
+<div class="text-xs font-mono text-white">|100⟩</div>
+<div class="text-sm font-bold text-white">0%</div>
+</div>
+</div>
+<div class="h-10 flex items-center opacity-50">
+<div class="relative w-12 h-12 rounded-full border-2 border-white bg-black flex items-center justify-center shrink-0">
+<div class="absolute w-full h-0.5 bg-white top-1/2 left-0"></div>
+<div class="absolute h-full w-0.5 bg-white top-0 left-1/2"></div>
+<div class="absolute w-10 h-4 border-2 border-white rounded-[100%] top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2"></div>
+<div class="absolute top-1/2 left-1/2 w-[2px] h-[45%] bg-white origin-bottom -translate-x-1/2 -translate-y-full rounded-full"></div>
+</div>
+<div class="ml-4 flex-1">
+<div class="text-xs font-mono text-white">|101⟩</div>
+<div class="text-sm font-bold text-white">0%</div>
+</div>
+</div>
+<div class="h-10 flex items-center opacity-50">
+<div class="relative w-12 h-12 rounded-full border-2 border-white bg-black flex items-center justify-center shrink-0">
+<div class="absolute w-full h-0.5 bg-white top-1/2 left-0"></div>
+<div class="absolute h-full w-0.5 bg-white top-0 left-1/2"></div>
+<div class="absolute w-10 h-4 border-2 border-white rounded-[100%] top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2"></div>
+<div class="absolute top-1/2 left-1/2 w-[2px] h-[45%] bg-white origin-bottom -translate-x-1/2 -translate-y-full rounded-full"></div>
+</div>
+<div class="ml-4 flex-1">
+<div class="text-xs font-mono text-white">|110⟩</div>
+<div class="text-sm font-bold text-white">0%</div>
+</div>
+</div>
+<div class="h-10 flex items-center opacity-50">
+<div class="relative w-12 h-12 rounded-full border-2 border-white bg-black flex items-center justify-center shrink-0">
+<div class="absolute w-full h-0.5 bg-white top-1/2 left-0"></div>
+<div class="absolute h-full w-0.5 bg-white top-0 left-1/2"></div>
+<div class="absolute w-10 h-4 border-2 border-white rounded-[100%] top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2"></div>
+<div class="absolute top-1/2 left-1/2 w-[2px] h-[45%] bg-white origin-bottom -translate-x-1/2 -translate-y-full rounded-full"></div>
+</div>
+<div class="ml-4 flex-1">
+<div class="text-xs font-mono text-white">|111⟩</div>
+<div class="text-sm font-bold text-white">0%</div>
+</div>
+</div>
+</div>
+</div>
+<div class="p-4 border-t-2 border-white bg-black shrink-0">
+<div class="text-xs text-white mb-2 font-bold uppercase">Measurement Probabilities</div>
+<div class="w-full h-4 border-2 border-white flex">
+<div class="h-full bg-white w-1/2"></div>
+<div class="h-full bg-gray-500 w-1/4"></div>
+<div class="h-full bg-black w-1/4"></div>
+</div>
+<div class="flex justify-between mt-2 text-[10px] text-white font-mono font-bold">
+<span>|000⟩: 50%</span>
+<span>|011⟩: 25%</span>
+</div>
+</div>
+</aside>
+<script>
+        // Simple drag and drop logic stub
+        const gates = document.querySelectorAll('.cursor-grab');
+        gates.forEach(gate => {
+            gate.addEventListener('dragstart', (e) => {
+                e.dataTransfer.effectAllowed = 'copy';
+            });
+        });
+        const circuitContainer = document.getElementById('circuit-container');
+        circuitContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        });
+        // Sync scroll between circuit and system state
+        const systemStateContainer = document.getElementById('system-state-container');
+        circuitContainer.addEventListener('scroll', () => {
+            systemStateContainer.scrollTop = circuitContainer.scrollTop;
+        });
+        systemStateContainer.addEventListener('scroll', () => {
+             circuitContainer.scrollTop = systemStateContainer.scrollTop;
+        });
+    </script>
+</body></html>
