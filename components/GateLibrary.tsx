@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GateType, CustomGateDefinition } from '../types';
+import { GateType, CustomGateDefinition, GateParams } from '../types';
 import { GATE_DEFS } from '../constants';
 import { Gate } from './Gate';
 
@@ -8,7 +8,7 @@ import { Gate } from './Gate';
 const GATE_LIBRARY_HEIGHT = 256;
 
 interface GateLibraryProps {
-  onHoverGate: (type: GateType | null) => void;
+  onHoverGate: (type: GateType | null, params?: GateParams) => void;
   customGates: CustomGateDefinition[];
   onAddCustomGate: () => void;
 }

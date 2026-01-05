@@ -1,7 +1,19 @@
 import { Complex, GateType, CircuitGrid, GateParams, PARAMETERIZED_GATES, ARITHMETIC_FIXED_2X1_GATES, ARITHMETIC_INPUT_GATES, ARITHMETIC_COMPARISON_GATES, ARITHMETIC_SCALAR_GATES, REQUIRES_INPUT_A, REQUIRES_INPUT_B, REQUIRES_INPUT_R } from '../types';
 import { GATE_DEFS } from '../constants';
 
+// --- Constants ---
+
+const EPSILON = 1e-10;
+const INV_SQRT_2 = 1 / Math.sqrt(2);
+const ZERO_COMPLEX: Complex = { re: 0, im: 0 };
+const ONE_COMPLEX: Complex = { re: 1, im: 0 };
+
 // --- Complex Number Math ---
+
+/**
+ * Check if a complex number is effectively zero
+ */
+const isZero = (c: Complex): boolean => c.re === 0 && c.im === 0;
 
 export const cAdd = (a: Complex, b: Complex): Complex => ({
   re: a.re + b.re,
@@ -240,12 +252,12 @@ const applyArithmeticPermutation = (
   antiControlMask: number,
   numQubits: number
 ): Complex[] => {
-  const newState: Complex[] = new Array(state.length).fill({ re: 0, im: 0 });
+  const newState: Complex[] = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
   const effectSpanSize = effectEnd - effectStart + 1;
   const mod2n = 1 << effectSpanSize; // 2^n for the effect register
 
   for (let i = 0; i < state.length; i++) {
-    if (state[i].re === 0 && state[i].im === 0) continue;
+    if (isZero(state[i])) continue;
 
     // Check controls
     if ((i & controlMask) !== controlMask || (i & antiControlMask) !== 0) {
@@ -368,12 +380,12 @@ const applyArithmeticPermutationDynamic = (
   antiControlMask: number,
   numQubits: number
 ): Complex[] => {
-  const newState: Complex[] = new Array(state.length).fill({ re: 0, im: 0 });
+  const newState: Complex[] = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
   const effectSpanSize = effectEnd - effectStart + 1;
   const mod2n = 1 << effectSpanSize; // 2^n for the effect register
 
   for (let i = 0; i < state.length; i++) {
-    if (state[i].re === 0 && state[i].im === 0) continue;
+    if (isZero(state[i])) continue;
 
     // Check controls
     if ((i & controlMask) !== controlMask || (i & antiControlMask) !== 0) {
@@ -507,11 +519,11 @@ const applyComparisonGate = (
   antiControlMask: number,
   numQubits: number
 ): Complex[] => {
-  const newState: Complex[] = new Array(state.length).fill({ re: 0, im: 0 });
+  const newState: Complex[] = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
   const targetBit = numQubits - 1 - targetRow;
 
   for (let i = 0; i < state.length; i++) {
-    if (state[i].re === 0 && state[i].im === 0) continue;
+    if (isZero(state[i])) continue;
 
     // Check controls
     if ((i & controlMask) !== controlMask || (i & antiControlMask) !== 0) {
@@ -572,7 +584,7 @@ const applyScalarGate = (
   antiControlMask: number,
   _numQubits: number  // Unused but kept for consistent API
 ): Complex[] => {
-  const newState: Complex[] = new Array(state.length).fill({ re: 0, im: 0 });
+  const newState: Complex[] = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
 
   // Determine the scalar based on gate type
   let scalar: Complex;
@@ -584,17 +596,17 @@ const applyScalarGate = (
       scalar = { re: 0, im: -1 }; // -i
       break;
     case GateType.SCALE_SQRT_I:
-      scalar = { re: 1 / Math.sqrt(2), im: 1 / Math.sqrt(2) }; // e^(iπ/4)
+      scalar = { re: INV_SQRT_2, im: INV_SQRT_2 }; // e^(iπ/4)
       break;
     case GateType.SCALE_SQRT_NEG_I:
-      scalar = { re: 1 / Math.sqrt(2), im: -1 / Math.sqrt(2) }; // e^(-iπ/4)
+      scalar = { re: INV_SQRT_2, im: -INV_SQRT_2 }; // e^(-iπ/4)
       break;
     default:
-      scalar = { re: 1, im: 0 }; // Identity
+      scalar = ONE_COMPLEX; // Identity
   }
 
   for (let i = 0; i < state.length; i++) {
-    if (state[i].re === 0 && state[i].im === 0) continue;
+    if (isZero(state[i])) continue;
 
     // Check controls
     if ((i & controlMask) !== controlMask || (i & antiControlMask) !== 0) {
@@ -743,6 +755,11 @@ export const isCircuitValid = (grid: CircuitGrid): boolean => {
   return validateCircuit(grid).length === 0;
 };
 
+// --- Gate Matrix Memoization ---
+
+// Cache for fixed rotation gates to avoid recomputation
+const gateMatrixCache = new Map<GateType, Complex[][]>();
+
 // --- Rotation Matrix Generators ---
 
 /**
@@ -781,10 +798,11 @@ export const getRzMatrix = (theta: number): Complex[][] => {
 };
 
 /**
- * Get the matrix for a gate, computing it dynamically for parameterized gates
+ * Get the matrix for a gate, computing it dynamically for parameterized gates.
+ * Fixed gates are memoized for performance.
  */
 export const getGateMatrix = (gateType: GateType, params?: GateParams): Complex[][] => {
-  // Handle parameterized rotation gates
+  // Handle parameterized rotation gates (cannot cache, depend on params)
   if ((PARAMETERIZED_GATES as readonly GateType[]).includes(gateType)) {
     const angle = params?.angle ?? 0;
     switch (gateType) {
@@ -797,68 +815,96 @@ export const getGateMatrix = (gateType: GateType, params?: GateParams): Complex[
     }
   }
 
-  // Handle preset rotation gates (fixed angles)
-  switch (gateType) {
-    case GateType.RX_PI_2:
-      return getRxMatrix(Math.PI / 2);
-    case GateType.RX_PI_4:
-      return getRxMatrix(Math.PI / 4);
-    case GateType.RX_PI_8:
-      return getRxMatrix(Math.PI / 8);
-    case GateType.RX_PI_12:
-      return getRxMatrix(Math.PI / 12);
-    case GateType.RY_PI_2:
-      return getRyMatrix(Math.PI / 2);
-    case GateType.RY_PI_4:
-      return getRyMatrix(Math.PI / 4);
-    case GateType.RY_PI_8:
-      return getRyMatrix(Math.PI / 8);
-    case GateType.RY_PI_12:
-      return getRyMatrix(Math.PI / 12);
-    case GateType.RZ_PI_2:
-      return getRzMatrix(Math.PI / 2);
-    case GateType.RZ_PI_4:
-      return getRzMatrix(Math.PI / 4);
-    case GateType.RZ_PI_8:
-      return getRzMatrix(Math.PI / 8);
-    case GateType.RZ_PI_12:
-      return getRzMatrix(Math.PI / 12);
-    // Square root gates (±90° rotations)
-    case GateType.SQRT_X:
-      return getRxMatrix(Math.PI / 2);  // X^{1/2} = 90° around X
-    case GateType.SQRT_X_DG:
-      return getRxMatrix(-Math.PI / 2); // X^{-1/2} = -90° around X
-    case GateType.SQRT_Y:
-      return getRyMatrix(Math.PI / 2);  // Y^{1/2} = 90° around Y
-    case GateType.SQRT_Y_DG:
-      return getRyMatrix(-Math.PI / 2); // Y^{-1/2} = -90° around Y
-    // SDG uses static matrix from GATE_DEFS (it's just [[1,0],[0,-i]])
-  }
-
-  // Handle custom gate
+  // Handle custom gate (cannot cache, unique per instance)
   if (gateType === GateType.CUSTOM && params?.customMatrix) {
     return params.customMatrix;
   }
 
-  // CCX acts as X on target (control logic handled by controlMask)
-  if (gateType === GateType.CCX) {
-    return [[{ re: 0, im: 0 }, { re: 1, im: 0 }], [{ re: 1, im: 0 }, { re: 0, im: 0 }]];
+  // Check cache for fixed gates
+  if (gateMatrixCache.has(gateType)) {
+    return gateMatrixCache.get(gateType)!;
   }
 
-  // Use static matrix from definitions
-  const def = GATE_DEFS[gateType];
-  if (!def) {
-    // Identity fallback
-    return [[{ re: 1, im: 0 }, { re: 0, im: 0 }], [{ re: 0, im: 0 }, { re: 1, im: 0 }]];
+  // Compute and cache preset rotation gates (fixed angles)
+  let matrix: Complex[][] | undefined;
+  switch (gateType) {
+    case GateType.RX_PI_2:
+      matrix = getRxMatrix(Math.PI / 2);
+      break;
+    case GateType.RX_PI_4:
+      matrix = getRxMatrix(Math.PI / 4);
+      break;
+    case GateType.RX_PI_8:
+      matrix = getRxMatrix(Math.PI / 8);
+      break;
+    case GateType.RX_PI_12:
+      matrix = getRxMatrix(Math.PI / 12);
+      break;
+    case GateType.RY_PI_2:
+      matrix = getRyMatrix(Math.PI / 2);
+      break;
+    case GateType.RY_PI_4:
+      matrix = getRyMatrix(Math.PI / 4);
+      break;
+    case GateType.RY_PI_8:
+      matrix = getRyMatrix(Math.PI / 8);
+      break;
+    case GateType.RY_PI_12:
+      matrix = getRyMatrix(Math.PI / 12);
+      break;
+    case GateType.RZ_PI_2:
+      matrix = getRzMatrix(Math.PI / 2);
+      break;
+    case GateType.RZ_PI_4:
+      matrix = getRzMatrix(Math.PI / 4);
+      break;
+    case GateType.RZ_PI_8:
+      matrix = getRzMatrix(Math.PI / 8);
+      break;
+    case GateType.RZ_PI_12:
+      matrix = getRzMatrix(Math.PI / 12);
+      break;
+    // Square root gates (±90° rotations)
+    case GateType.SQRT_X:
+      matrix = getRxMatrix(Math.PI / 2);  // X^{1/2} = 90° around X
+      break;
+    case GateType.SQRT_X_DG:
+      matrix = getRxMatrix(-Math.PI / 2); // X^{-1/2} = -90° around X
+      break;
+    case GateType.SQRT_Y:
+      matrix = getRyMatrix(Math.PI / 2);  // Y^{1/2} = 90° around Y
+      break;
+    case GateType.SQRT_Y_DG:
+      matrix = getRyMatrix(-Math.PI / 2); // Y^{-1/2} = -90° around Y
+      break;
+    // CCX acts as X on target (control logic handled by controlMask)
+    case GateType.CCX:
+      matrix = [[{ re: 0, im: 0 }, { re: 1, im: 0 }], [{ re: 1, im: 0 }, { re: 0, im: 0 }]];
+      break;
   }
-  return def.matrix;
+
+  if (matrix) {
+    gateMatrixCache.set(gateType, matrix);
+    return matrix;
+  }
+
+  // Use static matrix from definitions for basic gates (X, Y, Z, H, S, T, I, etc.)
+  const def = GATE_DEFS[gateType];
+  if (def) {
+    gateMatrixCache.set(gateType, def.matrix);
+    return def.matrix;
+  }
+
+  // Identity fallback for unknown gates
+  const identityMatrix = [[{ re: 1, im: 0 }, { re: 0, im: 0 }], [{ re: 0, im: 0 }, { re: 1, im: 0 }]];
+  return identityMatrix; // Don't cache unknown gates
 };
 
 // --- Simulation Logic ---
 
 export const createInitialState = (numQubits: number): Complex[] => {
   const size = Math.pow(2, numQubits);
-  const state: Complex[] = new Array(size).fill({ re: 0, im: 0 });
+  const state: Complex[] = new Array(size).fill(0).map(() => ({ re: 0, im: 0 }));
   state[0] = { re: 1, im: 0 };
   return state;
 };
@@ -997,12 +1043,12 @@ const applyGate = (
     params?: GateParams
 ): Complex[] => {
     const matrix = getGateMatrix(gateType, params);
-    const newState = new Array(state.length).fill({ re: 0, im: 0 });
+    const newState = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
     const bit = numQubits - 1 - row;
 
     for (let i = 0; i < state.length; i++) {
         // If state is zero, skip
-        if (state[i].re === 0 && state[i].im === 0) continue;
+        if (isZero(state[i])) continue;
 
         // Check controls
         // If controls are NOT satisfied, this gate acts as Identity
@@ -1022,7 +1068,7 @@ const applyGate = (
 
         for (let k = 0; k < 2; k++) {
             const matrixElem = matrix[k][localIdx];
-            if (matrixElem.re === 0 && matrixElem.im === 0) continue;
+            if (isZero(matrixElem)) continue;
 
             const targetIdx = otherBits | (k << bit);
             const val = cMul(matrixElem, state[i]);
@@ -1041,11 +1087,11 @@ const applyS = (
   numQubits: number
 ): Complex[] => {
   // S = [[1, 0], [0, i]]
-  const newState = new Array(state.length).fill({ re: 0, im: 0 });
+  const newState = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
   const bit = numQubits - 1 - row;
 
   for (let i = 0; i < state.length; i++) {
-    if (state[i].re === 0 && state[i].im === 0) continue;
+    if (isZero(state[i])) continue;
 
     const localIdx = (i >> bit) & 1;
     if (localIdx === 0) {
@@ -1065,11 +1111,11 @@ const applySdagger = (
   numQubits: number
 ): Complex[] => {
   // S† = [[1, 0], [0, -i]]
-  const newState = new Array(state.length).fill({ re: 0, im: 0 });
+  const newState = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
   const bit = numQubits - 1 - row;
 
   for (let i = 0; i < state.length; i++) {
-    if (state[i].re === 0 && state[i].im === 0) continue;
+    if (isZero(state[i])) continue;
 
     const localIdx = (i >> bit) & 1;
     if (localIdx === 0) {
@@ -1121,7 +1167,7 @@ const applyBitReversePermutation = (
     return state;
   }
 
-  const newState: Complex[] = new Array(state.length).fill({ re: 0, im: 0 });
+  const newState: Complex[] = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
 
   // Convert row indices to bit positions (rows are numbered top-to-bottom, bits are numbered right-to-left)
   // Row 0 = most significant bit, Row n-1 = least significant bit
@@ -1129,7 +1175,7 @@ const applyBitReversePermutation = (
   const endBit = numQubits - 1 - startRow;   // MSB of span
 
   for (let i = 0; i < state.length; i++) {
-    if (state[i].re === 0 && state[i].im === 0) continue;
+    if (isZero(state[i])) continue;
 
     // Extract the bits within the span
     let spanBits = 0;
@@ -1205,11 +1251,11 @@ const applyGateWithAntiControl = (
   params?: GateParams
 ): Complex[] => {
   const matrix = getGateMatrix(gateType, params);
-  const newState = new Array(state.length).fill({ re: 0, im: 0 });
+  const newState = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
   const bit = numQubits - 1 - row;
 
   for (let i = 0; i < state.length; i++) {
-    if (state[i].re === 0 && state[i].im === 0) continue;
+    if (isZero(state[i])) continue;
 
     // Check controls (must be 1) and anti-controls (must be 0)
     const controlsSatisfied = (i & controlMask) === controlMask;
@@ -1227,7 +1273,7 @@ const applyGateWithAntiControl = (
 
     for (let k = 0; k < 2; k++) {
       const matrixElem = matrix[k][localIdx];
-      if (matrixElem.re === 0 && matrixElem.im === 0) continue;
+      if (isZero(matrixElem)) continue;
 
       const targetIdx = otherBits | (k << bit);
       const val = cMul(matrixElem, state[i]);
@@ -1265,10 +1311,9 @@ export const getBlochVector = (state: Complex[], targetQubit: number, totalQubit
 
         const c0 = state[i];
         const c1 = state[idx1];
-        
+
         const termRe = c0.re * c1.re + c0.im * c1.im;
-        // const termIm = c0.re * c1.im - c0.im * c1.re; // Not needed directly, derived
-        
+
         expX += 2 * termRe;
         expY += 2 * (c1.im * c0.re - c1.re * c0.im);
     }
@@ -1308,7 +1353,7 @@ export const measureQubit = (
   const measuredProb = result === 0 ? prob0 : 1 - prob0;
 
   // Collapse the state
-  const collapsedState: Complex[] = new Array(state.length).fill({ re: 0, im: 0 });
+  const collapsedState: Complex[] = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
   const normFactor = Math.sqrt(measuredProb);
 
   for (let i = 0; i < state.length; i++) {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { HoverInfo } from './InfoBox';
 
 interface BlochSphereProps {
   x: number;
@@ -7,7 +8,7 @@ interface BlochSphereProps {
   size?: number;
   row: number;
   col: number;
-  onHover: (data: string | null) => void;
+  onHover: (info: HoverInfo) => void;
 }
 
 // Format a coefficient for Dirac notation display
@@ -93,7 +94,16 @@ export const BlochSphere: React.FC<BlochSphereProps> = ({ x, y, z, size = 48, ro
   const diracNotation = buildDiracNotation();
 
   const handleMouseEnter = () => {
-    onHover(`|q${row}⟩ = ${diracNotation}  (X=${x.toFixed(2)}, Y=${y.toFixed(2)}, Z=${z.toFixed(2)})`);
+    onHover({
+      type: 'bloch',
+      qubit: row,
+      state: diracNotation,
+      vector: [x, y, z]
+    });
+  };
+
+  const handleMouseLeave = () => {
+    onHover({ type: 'none' });
   };
 
   // Calculate radius for the arrow (from center to edge)
@@ -111,7 +121,7 @@ export const BlochSphere: React.FC<BlochSphereProps> = ({ x, y, z, size = 48, ro
         border: '1px solid rgba(255, 255, 255, 0.6)'
       }}
       onMouseEnter={handleMouseEnter}
-      onMouseLeave={() => onHover(null)}
+      onMouseLeave={handleMouseLeave}
     >
       {/* SVG for axes and vector */}
       <svg

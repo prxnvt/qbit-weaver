@@ -4,9 +4,11 @@ import { INITIAL_ROWS, INITIAL_COLS, MAX_ROWS, ROW_HEIGHT, CELL_WIDTH, GRID_CELL
 import { GateLibrary } from './components/GateLibrary';
 import { Gate } from './components/Gate';
 import { BlochSphere } from './components/BlochSphere';
+import { AmplitudeGrid } from './components/AmplitudeGrid';
 import { AngleInput } from './components/AngleInput';
 import { CustomGateDialog } from './components/CustomGateDialog';
 import { AlgorithmSidebar } from './components/AlgorithmSidebar';
+import { InfoBox, HoverInfo } from './components/InfoBox';
 import { runCircuitWithMeasurements, getBlochVector, validateCircuit, ValidationError } from './utils/quantum';
 import { AlgorithmTemplate } from './data/algorithms';
 
@@ -51,8 +53,7 @@ const getTemplatePopulatedDimensions = (template: AlgorithmTemplate): { rows: nu
 
 const App: React.FC = () => {
   // Rows are always fixed at 8 (q0-q7)
-  const [hoveredGate, setHoveredGate] = useState<GateType | null>(null);
-  const [hoveredInfo, setHoveredInfo] = useState<string | null>(null);
+  const [hoverInfo, setHoverInfo] = useState<HoverInfo>({ type: 'none' });
   const [pendingAngle, setPendingAngle] = useState<PendingAngleInput | null>(null);
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [customGates, setCustomGates] = useState<CustomGateDefinition[]>([]);
@@ -70,7 +71,6 @@ const App: React.FC = () => {
   const [dragHover, setDragHover] = useState<{ row: number; col: number } | null>(null);
 
   // Template drag state for algorithm sidebar
-  const [hoveredTemplate, setHoveredTemplate] = useState<AlgorithmTemplate | null>(null);
   const [templateDragHover, setTemplateDragHover] = useState<{ row: number; col: number } | null>(null);
   const [draggingTemplate, setDraggingTemplate] = useState<AlgorithmTemplate | null>(null);
 
@@ -96,6 +96,29 @@ const App: React.FC = () => {
     );
   });
 
+
+  // Hover handlers for InfoBox
+  const handleGateHover = useCallback((gate: GateType | null, params?: GateParams) => {
+    if (gate) {
+      setHoverInfo({ type: 'gate', gate, params });
+    } else {
+      setHoverInfo({ type: 'none' });
+    }
+  }, []);
+
+  const handleTemplateHover = useCallback((template: AlgorithmTemplate | null) => {
+    if (template) {
+      setHoverInfo({
+        type: 'template',
+        name: template.name,
+        description: template.description,
+        qubits: template.qubits,
+        category: template.category
+      });
+    } else {
+      setHoverInfo({ type: 'none' });
+    }
+  }, []);
 
   // Validate circuit whenever it changes
   useEffect(() => {
@@ -131,17 +154,6 @@ const App: React.FC = () => {
       }
     }
     return Math.max(rightmostPopulated + 1, INITIAL_COLS);
-  }, [grid]);
-
-  // Calculate populated column count for the output grid (columns with at least one gate)
-  const populatedColCount = React.useMemo(() => {
-    let count = 0;
-    for (let c = 0; c < (grid[0]?.length ?? 0); c++) {
-      if (grid.some(row => row[c]?.gate !== null)) {
-        count++;
-      }
-    }
-    return count;
   }, [grid]);
 
   // Helper to check if a cell has a validation error
@@ -343,7 +355,7 @@ const App: React.FC = () => {
       if (!circuitContainer) return;
 
       const rect = circuitContainer.getBoundingClientRect();
-      // Account for padding (pt-4 = 16px + py-8 = 32px top)
+      // Account for padding (pt-4 = 16px + py-4 = 16px top)
       const relativeY = e.clientY - rect.top - 16 + circuitContainer.scrollTop;
       const targetRow = Math.floor(relativeY / ROW_HEIGHT);
       const clampedRow = Math.max(0, Math.min(targetRow, MAX_ROWS - 1));
@@ -853,7 +865,7 @@ const App: React.FC = () => {
           <section className="flex-1 relative bg-black overflow-auto min-h-0">
 
             {/* Circuit Grid */}
-            <div ref={circuitScrollRef} className="py-8 pl-4 pr-8 relative" id="circuit-container">
+            <div ref={circuitScrollRef} className="py-4 pl-4 pr-8 relative" id="circuit-container">
             {/* Circuit Wires and Gates */}
             <div className="relative inline-block min-w-full">
               {/* Column Connectors Layer */}
@@ -865,8 +877,10 @@ const App: React.FC = () => {
                 ))}
               </div>
 
-              {/* Qubit Rows */}
-              <div className="pt-4">
+              {/* Qubit Rows and Amplitude Grid Container */}
+              <div className="pt-4 flex items-start">
+                {/* Qubit Rows */}
+                <div>
                 {grid.map((row, rIdx) => {
                   // Display columns based on computed displayColCount
                   const displayCols = row.slice(0, displayColCount);
@@ -948,7 +962,7 @@ const App: React.FC = () => {
                               >
                                 {/* Regular gates (non-spanning) */}
                                 {cell.gate && !(ALL_SPANNING_GATE_TYPES as readonly GateType[]).includes(cell.gate) && (
-                                  <Gate type={cell.gate} onHover={setHoveredGate} params={cell.params} cellId={cell.id} hasError={cellHasError(rIdx, cIdx)} />
+                                  <Gate type={cell.gate} onHover={handleGateHover} params={cell.params} cellId={cell.id} hasError={cellHasError(rIdx, cIdx)} />
                                 )}
                                 {/* Render spanning gate anchor (REVERSE, arithmetic spanning, input markers) */}
                                 {cell.gate && (ALL_SPANNING_GATE_TYPES as readonly GateType[]).includes(cell.gate) && !cell.params?.isSpanContinuation && cell.params?.reverseSpan && (
@@ -1086,8 +1100,10 @@ const App: React.FC = () => {
                           <div className="flex items-center ml-4 gap-4">
                             {/* Percentage of |1⟩ in a box with green fill from bottom */}
                             <div
-                              className="border-2 border-white/30 flex items-center justify-center font-bold text-white relative overflow-hidden"
+                              className="border-2 border-white/30 flex items-center justify-center font-bold text-white relative overflow-hidden cursor-pointer"
                               style={{ width: GRID_CELL_SIZE, height: GRID_CELL_SIZE }}
+                              onMouseEnter={() => setHoverInfo({ type: 'percentage', qubit: rIdx, probability: parseFloat(prob1Pct) })}
+                              onMouseLeave={() => setHoverInfo({ type: 'none' })}
                             >
                               {/* Green fill from bottom based on percentage */}
                               <div
@@ -1104,61 +1120,29 @@ const App: React.FC = () => {
                               size={GRID_CELL_SIZE - 8}
                               row={rIdx}
                               col={-1}
-                              onHover={setHoveredInfo}
+                              onHover={setHoverInfo}
                             />
                           </div>
                         )}
 
-                        {/* Post-run: grid cells for this row (all rows get cells, populated or not) */}
-                        {hasRun && (
-                          <div className="flex items-center ml-4 gap-1">
-                            {Array.from({ length: populatedColCount }).map((_, colIdx) => (
-                              <div
-                                key={`grid-${rIdx}-${colIdx}`}
-                                className="border border-white/30 bg-black flex items-center justify-center"
-                                style={{ width: GRID_CELL_SIZE, height: GRID_CELL_SIZE }}
-                              >
-                                {/* Grid cell content - to be populated later */}
-                              </div>
-                            ))}
-                            {/* Row label (binary) - to the right of the grid */}
-                            <div
-                              className="flex items-center justify-center text-xs font-mono text-white/70 ml-1"
-                              style={{ width: GRID_CELL_SIZE, height: GRID_CELL_SIZE }}
-                            >
-                              {rIdx.toString(2).padStart(Math.ceil(Math.log2(MAX_ROWS || 1)), '0')}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                   );
                 })}
+                </div>
 
-                {/* Column labels for the grid (binary, below grid) */}
-                {hasRun && populatedColCount > 0 && (
-                  <div className="flex items-start" style={{ height: GRID_CELL_SIZE / 2 }}>
-                    {/* Spacer for qubit label */}
-                    <div className="w-12"></div>
-                    {/* Spacer for wire and gates */}
-                    <div style={{ width: displayColCount * CELL_WIDTH + CELL_WIDTH }}></div>
-                    {/* Spacer for percentage box + Bloch sphere + gaps */}
-                    <div className="ml-4" style={{ width: GRID_CELL_SIZE * 2 + 8 }}></div>
-                    {/* Column labels with gap matching grid */}
-                    <div className="flex ml-4 gap-1">
-                      {Array.from({ length: populatedColCount }).map((_, colIdx) => (
-                        <div
-                          key={`col-label-${colIdx}`}
-                          className="flex items-start justify-center text-xs font-mono text-white/70"
-                          style={{ width: GRID_CELL_SIZE }}
-                        >
-                          {colIdx.toString(2).padStart(Math.ceil(Math.log2(populatedColCount || 1)), '0')}
-                        </div>
-                      ))}
-                    </div>
+                {/* Amplitude Grid - fixed position to the right of rows */}
+                {hasRun && finalState && populatedRows.length > 0 && (
+                  <div className="ml-4">
+                    <AmplitudeGrid
+                      amplitudes={finalState}
+                      numQubits={populatedRows.length}
+                      maxHeight={MAX_ROWS * ROW_HEIGHT}
+                      rowHeight={ROW_HEIGHT}
+                      onHover={setHoverInfo}
+                    />
                   </div>
                 )}
-
               </div>
             </div>
 
@@ -1167,21 +1151,26 @@ const App: React.FC = () => {
 
           {/* Gate Library - Bottom of left column */}
           <GateLibrary
-            onHoverGate={setHoveredGate}
+            onHoverGate={handleGateHover}
             customGates={customGates}
             onAddCustomGate={handleAddCustomGate}
           />
         </div>
 
-        {/* Right: Algorithm Templates Sidebar */}
-        <AlgorithmSidebar
-          onHoverTemplate={setHoveredTemplate}
-          onDragStart={setDraggingTemplate}
-          onDragEnd={() => {
-            setDraggingTemplate(null);
-            setTemplateDragHover(null);
-          }}
-        />
+        {/* Right: Algorithm Templates Sidebar + InfoBox */}
+        <div className="flex flex-col shrink-0" style={{ width: 288 }}>
+          <AlgorithmSidebar
+            onHoverTemplate={handleTemplateHover}
+            onDragStart={setDraggingTemplate}
+            onDragEnd={() => {
+              setDraggingTemplate(null);
+              setTemplateDragHover(null);
+            }}
+          />
+
+          {/* Info Box - Bottom of right column */}
+          <InfoBox info={hoverInfo} />
+        </div>
 
       </div>
 

@@ -4,7 +4,7 @@ import { formatAngle } from '../utils/angleParser';
 
 interface GateProps {
   type: GateType;
-  onHover: (type: GateType | null) => void;
+  onHover: (type: GateType | null, params?: GateParams) => void;
   params?: GateParams;
   /** If provided, this gate is on the circuit board and can be moved */
   cellId?: string;
@@ -310,7 +310,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
     <div
       draggable
       onDragStart={handleDragStart}
-      onMouseEnter={() => onHover(type)}
+      onMouseEnter={() => onHover(type, params)}
       onMouseLeave={() => onHover(null)}
       className={`${baseClasses} ${specificStyles} ${errorBgClass} group`}
     >
