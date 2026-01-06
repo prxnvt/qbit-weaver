@@ -280,6 +280,50 @@ export const REQUIRES_INPUT_R = [
   GateType.DIV_A_MOD_R,
 ] as const;
 
+// ============================================================================
+// Type Guards for Gate Categories
+// ============================================================================
+
+/** Type guard: checks if a gate is parameterized */
+export function isParameterizedGate(gate: GateType): boolean {
+  return (PARAMETERIZED_GATES as readonly GateType[]).includes(gate);
+}
+
+/** Type guard: checks if a gate is a fixed 2x1 arithmetic gate */
+export function isArithmeticFixed2x1Gate(gate: GateType): boolean {
+  return (ARITHMETIC_FIXED_2X1_GATES as readonly GateType[]).includes(gate);
+}
+
+/** Type guard: checks if a gate is an arithmetic input gate */
+export function isArithmeticInputGate(gate: GateType): boolean {
+  return (ARITHMETIC_INPUT_GATES as readonly GateType[]).includes(gate);
+}
+
+/** Type guard: checks if a gate is an arithmetic comparison gate */
+export function isArithmeticComparisonGate(gate: GateType): boolean {
+  return (ARITHMETIC_COMPARISON_GATES as readonly GateType[]).includes(gate);
+}
+
+/** Type guard: checks if a gate is an arithmetic scalar gate */
+export function isArithmeticScalarGate(gate: GateType): boolean {
+  return (ARITHMETIC_SCALAR_GATES as readonly GateType[]).includes(gate);
+}
+
+/** Type guard: checks if a gate requires INPUT_A */
+export function isRequiresInputAGate(gate: GateType): boolean {
+  return (REQUIRES_INPUT_A as readonly GateType[]).includes(gate);
+}
+
+/** Type guard: checks if a gate requires INPUT_B */
+export function isRequiresInputBGate(gate: GateType): boolean {
+  return (REQUIRES_INPUT_B as readonly GateType[]).includes(gate);
+}
+
+/** Type guard: checks if a gate requires INPUT_R */
+export function isRequiresInputRGate(gate: GateType): boolean {
+  return (REQUIRES_INPUT_R as readonly GateType[]).includes(gate);
+}
+
 export interface GateDef {
   type: GateType;
   label: string;
