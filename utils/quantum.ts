@@ -1,6 +1,11 @@
 import { Complex, GateType, CircuitGrid, GateParams, SimulationWarning, PARAMETERIZED_GATES, ARITHMETIC_FIXED_2X1_GATES, ARITHMETIC_INPUT_GATES, ARITHMETIC_COMPARISON_GATES, ARITHMETIC_SCALAR_GATES, REQUIRES_INPUT_A, REQUIRES_INPUT_B, REQUIRES_INPUT_R } from '../types';
 import { GATE_DEFS } from '../constants';
-import { EPSILON as COMPLEX_EPSILON, add as complexAdd, mul as complexMul, absSq as complexAbsSq } from './complex';
+import {
+  EPSILON as COMPLEX_EPSILON,
+  add as complexAdd,
+  mul as complexMul,
+  absSq as complexAbsSq,
+} from './complex';
 
 // --- Constants ---
 

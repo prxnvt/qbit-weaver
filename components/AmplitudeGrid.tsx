@@ -1,6 +1,7 @@
 import React from 'react';
 import { Complex } from '../types';
 import { HoverInfo } from './InfoBox';
+import { abs, arg, absSq } from '../utils/complex';
 
 interface AmplitudeGridProps {
   amplitudes: Complex[];
@@ -45,17 +46,7 @@ function toBinaryLabel(value: number, numBits: number): string {
   return value.toString(2).padStart(numBits, '0');
 }
 
-function complexMagnitude(c: Complex): number {
-  return Math.sqrt(c.re * c.re + c.im * c.im);
-}
-
-function complexPhase(c: Complex): number {
-  return Math.atan2(c.im, c.re);
-}
-
-function complexProbability(c: Complex): number {
-  return c.re * c.re + c.im * c.im;
-}
+// Use abs, arg, absSq from utils/complex
 
 const AmplitudeCell: React.FC<AmplitudeCellProps> = ({
   amplitude,
@@ -64,9 +55,9 @@ const AmplitudeCell: React.FC<AmplitudeCellProps> = ({
   numQubits,
   onHover
 }) => {
-  const probability = complexProbability(amplitude);
-  const magnitude = complexMagnitude(amplitude);
-  const phase = complexPhase(amplitude);
+  const probability = absSq(amplitude);
+  const magnitude = abs(amplitude);
+  const phase = arg(amplitude);
 
   const fillHeight = probability * size;
   const maxRadius = size * 0.35;
