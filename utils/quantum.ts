@@ -436,7 +436,7 @@ const computeArithmeticResult = (
  */
 const applyArithmeticPermutation = (
   state: ComplexArray,
-  gateType: GateType,
+  gateType: ArithmeticFixed2x1Gate,
   effectStart: number,
   effectEnd: number,
   inputAValue: number | null,
@@ -483,7 +483,7 @@ const applyArithmeticPermutation = (
  */
 const applyArithmeticPermutationDynamic = (
   state: ComplexArray,
-  gateType: GateType,
+  gateType: ArithmeticFixed2x1Gate,
   effectStart: number,
   effectEnd: number,
   inputASpan: { startRow: number; endRow: number } | null,
@@ -1071,9 +1071,9 @@ const simulateColumn = (
 
   // Advanced gate collections (only used when processAdvancedGates=true)
   const reverseGates: { startRow: number; endRow: number }[] = [];
-  const arithmeticOps: { startRow: number; endRow: number; gateType: GateType; originalRow: number }[] = [];
-  const comparisonOps: { row: number; gateType: GateType; originalRow: number }[] = [];
-  const scalarOps: { row: number; gateType: GateType }[] = [];
+  const arithmeticOps: { startRow: number; endRow: number; gateType: ArithmeticFixed2x1Gate; originalRow: number }[] = [];
+  const comparisonOps: { row: number; gateType: ArithmeticComparisonGate; originalRow: number }[] = [];
+  const scalarOps: { row: number; gateType: ArithmeticScalarGate }[] = [];
   let inputASpan: { startRow: number; endRow: number } | null = null;
   let inputBSpan: { startRow: number; endRow: number } | null = null;
   let inputRSpan: { startRow: number; endRow: number } | null = null;
@@ -1736,6 +1736,22 @@ export const measureQubit = (
   return { result, probability: measuredProb, collapsedState };
 };
 
+/** Result of running circuit with measurements */
+export interface CircuitSimulationResult {
+  /** Final quantum state after simulation */
+  finalState: Complex[];
+  /** State after each column (for step-through mode) */
+  stateHistory: Complex[][];
+  /** Column indices that have at least one gate (for timeline display) */
+  activeColumns: number[];
+  /** Measurement outcomes */
+  measurements: { qubit: number; result: 0 | 1; probability: number }[];
+  /** Rows that have at least one gate */
+  populatedRows: number[];
+  /** Warnings from simulation */
+  warnings: SimulationWarning[];
+}
+
 /**
  * Run the circuit with actual measurements.
  * This is used for the "Run" workflow and performs real measurements.
@@ -1743,7 +1759,7 @@ export const measureQubit = (
  */
 export const runCircuitWithMeasurements = (
   grid: CircuitGrid
-): { finalState: Complex[]; measurements: { qubit: number; result: 0 | 1; probability: number }[]; populatedRows: number[]; warnings: SimulationWarning[] } => {
+): CircuitSimulationResult => {
   const numRows = grid.length;
   const numCols = grid[0]?.length || 0;
   const warnings: SimulationWarning[] = [];
@@ -1759,8 +1775,11 @@ export const runCircuitWithMeasurements = (
 
   // If no gates at all, return default state for all qubits
   if (populatedRows.length === 0) {
+    const initialState = toComplexObjectArray(createInitialState(numRows));
     return {
-      finalState: toComplexObjectArray(createInitialState(numRows)),
+      finalState: initialState,
+      stateHistory: [initialState],
+      activeColumns: [],
       measurements: [],
       populatedRows: [],
       warnings: []
@@ -1777,7 +1796,25 @@ export const runCircuitWithMeasurements = (
   let currentState = createInitialState(numFilteredRows);
   const measurements: { qubit: number; result: 0 | 1; probability: number }[] = [];
 
+  // Track state history and active columns
+  const stateHistory: Complex[][] = [toComplexObjectArray(currentState)];
+  const activeColumns: number[] = [];
+
+  // Helper to check if column has any gates
+  const columnHasGates = (col: number): boolean => {
+    for (const originalRow of populatedRows) {
+      const cell = grid[originalRow]?.[col];
+      if (cell?.gate !== null) return true;
+    }
+    return false;
+  };
+
   for (let col = 0; col < numCols; col++) {
+    // Only process and record columns with gates
+    if (!columnHasGates(col)) continue;
+
+    activeColumns.push(col);
+
     const result = simulateColumn(currentState, grid, col, {
       numQubits: numFilteredRows,
       columnIndex: col,
@@ -1795,7 +1832,17 @@ export const runCircuitWithMeasurements = (
       measurements.push({ qubit: result.measureOriginalRows[i], result: mResult, probability });
       currentState = collapsedState;
     }
+
+    // Record state after this column
+    stateHistory.push(toComplexObjectArray(currentState));
   }
 
-  return { finalState: toComplexObjectArray(currentState), measurements, populatedRows, warnings };
+  return {
+    finalState: toComplexObjectArray(currentState),
+    stateHistory,
+    activeColumns,
+    measurements,
+    populatedRows,
+    warnings
+  };
 };

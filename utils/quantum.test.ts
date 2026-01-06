@@ -2301,6 +2301,143 @@ describe('quantum utilities', () => {
         expect(totalProb).toBeCloseTo(1, 5);
       });
     });
+
+    describe('stateHistory for step-through simulation', () => {
+      it('should return initial state as first element when circuit has gates', () => {
+        const grid: CircuitGrid = Array(2).fill(null).map((_, r) =>
+          Array(3).fill(null).map((_, c) => ({
+            gate: null,
+            id: `cell-${r}-${c}`
+          }))
+        );
+        grid[0][0].gate = GateType.H;
+
+        const { stateHistory } = runCircuitWithMeasurements(grid);
+        // stateHistory[0] should be initial |0> state
+        expect(stateHistory.length).toBeGreaterThan(0);
+        expect(stateHistory[0][0].re).toBeCloseTo(1, 5);
+        expect(stateHistory[0][0].im).toBeCloseTo(0, 5);
+      });
+
+      it('should have stateHistory length equal to activeColumns + 1', () => {
+        const grid: CircuitGrid = Array(2).fill(null).map((_, r) =>
+          Array(5).fill(null).map((_, c) => ({
+            gate: null,
+            id: `cell-${r}-${c}`
+          }))
+        );
+        // Gates in columns 0, 2, 4 (3 active columns)
+        grid[0][0].gate = GateType.H;
+        grid[0][2].gate = GateType.X;
+        grid[0][4].gate = GateType.Z;
+
+        const { stateHistory, activeColumns } = runCircuitWithMeasurements(grid);
+        expect(activeColumns).toEqual([0, 2, 4]);
+        expect(stateHistory.length).toBe(activeColumns.length + 1); // initial + after each column
+      });
+
+      it('should track state evolution through gate sequence', () => {
+        const grid: CircuitGrid = Array(1).fill(null).map((_, r) =>
+          Array(2).fill(null).map((_, c) => ({
+            gate: null,
+            id: `cell-${r}-${c}`
+          }))
+        );
+        // H gate followed by X gate
+        grid[0][0].gate = GateType.H;
+        grid[0][1].gate = GateType.X;
+
+        const { stateHistory, activeColumns } = runCircuitWithMeasurements(grid);
+        expect(activeColumns).toEqual([0, 1]);
+        expect(stateHistory.length).toBe(3); // initial, after H, after X
+
+        // Initial: |0>
+        expect(stateHistory[0][0].re).toBeCloseTo(1, 5);
+        expect(stateHistory[0][1]?.re ?? 0).toBeCloseTo(0, 5);
+
+        // After H: (|0> + |1>)/sqrt(2)
+        const sqrtHalf = 1 / Math.sqrt(2);
+        expect(stateHistory[1][0].re).toBeCloseTo(sqrtHalf, 5);
+        expect(stateHistory[1][1].re).toBeCloseTo(sqrtHalf, 5);
+
+        // After X on H state: X(|0> + |1>)/sqrt(2) = (|1> + |0>)/sqrt(2) (same)
+        expect(stateHistory[2][0].re).toBeCloseTo(sqrtHalf, 5);
+        expect(stateHistory[2][1].re).toBeCloseTo(sqrtHalf, 5);
+      });
+
+      it('should return empty activeColumns for empty circuit', () => {
+        const grid: CircuitGrid = Array(2).fill(null).map((_, r) =>
+          Array(3).fill(null).map((_, c) => ({
+            gate: null,
+            id: `cell-${r}-${c}`
+          }))
+        );
+
+        const { stateHistory, activeColumns } = runCircuitWithMeasurements(grid);
+        expect(activeColumns).toEqual([]);
+        expect(stateHistory.length).toBe(1); // Only initial state
+      });
+
+      it('should skip empty columns in activeColumns', () => {
+        const grid: CircuitGrid = Array(2).fill(null).map((_, r) =>
+          Array(6).fill(null).map((_, c) => ({
+            gate: null,
+            id: `cell-${r}-${c}`
+          }))
+        );
+        // Gates only in columns 1 and 4
+        grid[0][1].gate = GateType.X;
+        grid[1][4].gate = GateType.H;
+
+        const { activeColumns } = runCircuitWithMeasurements(grid);
+        expect(activeColumns).toEqual([1, 4]);
+      });
+
+      it('should handle multi-qubit circuit with proper state dimensions', () => {
+        const grid: CircuitGrid = Array(3).fill(null).map((_, r) =>
+          Array(2).fill(null).map((_, c) => ({
+            gate: null,
+            id: `cell-${r}-${c}`
+          }))
+        );
+        grid[0][0].gate = GateType.H;
+        grid[1][0].gate = GateType.H;
+        grid[2][1].gate = GateType.X;
+
+        const { stateHistory, activeColumns, populatedRows } = runCircuitWithMeasurements(grid);
+        expect(populatedRows).toEqual([0, 1, 2]);
+        expect(activeColumns).toEqual([0, 1]);
+        expect(stateHistory.length).toBe(3);
+
+        // Each state should have 2^3 = 8 amplitudes
+        stateHistory.forEach(state => {
+          expect(state.length).toBe(8);
+          const totalProb = state.reduce((sum, amp) => sum + cAbsSq(amp), 0);
+          expect(totalProb).toBeCloseTo(1, 5);
+        });
+      });
+
+      it('should match finalState with last stateHistory entry', () => {
+        const grid: CircuitGrid = Array(2).fill(null).map((_, r) =>
+          Array(3).fill(null).map((_, c) => ({
+            gate: null,
+            id: `cell-${r}-${c}`
+          }))
+        );
+        grid[0][0].gate = GateType.H;
+        grid[0][1].gate = GateType.X;
+        grid[1][2].gate = GateType.Y;
+
+        const { finalState, stateHistory } = runCircuitWithMeasurements(grid);
+        const lastHistoryState = stateHistory[stateHistory.length - 1];
+
+        expect(finalState.length).toBe(lastHistoryState.length);
+        for (let i = 0; i < finalState.length; i++) {
+          expect(finalState[i].re).toBeCloseTo(lastHistoryState[i].re, 10);
+          expect(finalState[i].im).toBeCloseTo(lastHistoryState[i].im, 10);
+        }
+      });
+    });
   });
 
   // Helper function for matrix multiplication
