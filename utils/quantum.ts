@@ -1,4 +1,4 @@
-import { Complex, GateType, CircuitGrid, GateParams, PARAMETERIZED_GATES, ARITHMETIC_FIXED_2X1_GATES, ARITHMETIC_INPUT_GATES, ARITHMETIC_COMPARISON_GATES, ARITHMETIC_SCALAR_GATES, REQUIRES_INPUT_A, REQUIRES_INPUT_B, REQUIRES_INPUT_R } from '../types';
+import { Complex, GateType, CircuitGrid, GateParams, SimulationWarning, PARAMETERIZED_GATES, ARITHMETIC_FIXED_2X1_GATES, ARITHMETIC_INPUT_GATES, ARITHMETIC_COMPARISON_GATES, ARITHMETIC_SCALAR_GATES, REQUIRES_INPUT_A, REQUIRES_INPUT_B, REQUIRES_INPUT_R } from '../types';
 import { GATE_DEFS } from '../constants';
 
 // --- Constants ---
@@ -1316,9 +1316,10 @@ export const measureQubit = (
  */
 export const runCircuitWithMeasurements = (
   grid: CircuitGrid
-): { finalState: Complex[]; measurements: { qubit: number; result: 0 | 1; probability: number }[]; populatedRows: number[] } => {
+): { finalState: Complex[]; measurements: { qubit: number; result: 0 | 1; probability: number }[]; populatedRows: number[]; warnings: SimulationWarning[] } => {
   const numRows = grid.length;
   const numCols = grid[0]?.length || 0;
+  const warnings: SimulationWarning[] = [];
 
   // Find which rows have at least one gate
   const populatedRows: number[] = [];
@@ -1334,7 +1335,8 @@ export const runCircuitWithMeasurements = (
     return {
       finalState: createInitialState(numRows),
       measurements: [],
-      populatedRows: []
+      populatedRows: [],
+      warnings: []
     };
   }
 
@@ -1360,9 +1362,9 @@ export const runCircuitWithMeasurements = (
     const measureRows: number[] = [];
     const reverseGates: { startRow: number; endRow: number }[] = [];
 
-    // Arithmetic gate collections
-    const arithmeticOps: { startRow: number; endRow: number; gateType: GateType }[] = [];
-    const comparisonOps: { row: number; gateType: GateType }[] = [];
+    // Arithmetic gate collections (include originalRow for warning messages)
+    const arithmeticOps: { startRow: number; endRow: number; gateType: GateType; originalRow: number }[] = [];
+    const comparisonOps: { row: number; gateType: GateType; originalRow: number }[] = [];
     const scalarOps: { row: number; gateType: GateType }[] = [];
     let inputASpan: { startRow: number; endRow: number } | null = null;
     let inputBSpan: { startRow: number; endRow: number } | null = null;
@@ -1439,13 +1441,13 @@ export const runCircuitWithMeasurements = (
           const filteredStart = rowToFiltered.get(span.startRow);
           const filteredEnd = rowToFiltered.get(span.endRow);
           if (filteredStart !== undefined && filteredEnd !== undefined) {
-            arithmeticOps.push({ startRow: filteredStart, endRow: filteredEnd, gateType: type });
+            arithmeticOps.push({ startRow: filteredStart, endRow: filteredEnd, gateType: type, originalRow });
           }
         }
       }
       // Comparison gates (single-qubit)
       else if ((ARITHMETIC_COMPARISON_GATES as readonly GateType[]).includes(type)) {
-        comparisonOps.push({ row: filteredRow, gateType: type });
+        comparisonOps.push({ row: filteredRow, gateType: type, originalRow });
       }
       // Scalar gates (single-qubit)
       else if ((ARITHMETIC_SCALAR_GATES as readonly GateType[]).includes(type)) {
@@ -1523,9 +1525,40 @@ export const runCircuitWithMeasurements = (
 
     // Apply arithmetic spanning gates (permutations)
     for (const arithOp of arithmeticOps) {
-      // For each basis state, we need to read the input values dynamically
-      // Since input values depend on the basis state, we handle this inside applyArithmeticPermutation
-      // Pass null for inputs if spans don't exist, the function will handle it
+      // Check for missing required inputs and generate warnings
+      const requiresA = (REQUIRES_INPUT_A as readonly GateType[]).includes(arithOp.gateType);
+      const requiresB = (REQUIRES_INPUT_B as readonly GateType[]).includes(arithOp.gateType);
+      const requiresR = (REQUIRES_INPUT_R as readonly GateType[]).includes(arithOp.gateType);
+
+      if (requiresA && !inputASpan) {
+        warnings.push({
+          column: col,
+          row: arithOp.originalRow,
+          gateType: arithOp.gateType,
+          message: `${arithOp.gateType} gate requires INPUT_A marker in the same column`,
+          category: 'missing_input'
+        });
+      }
+      if (requiresB && !inputBSpan) {
+        warnings.push({
+          column: col,
+          row: arithOp.originalRow,
+          gateType: arithOp.gateType,
+          message: `${arithOp.gateType} gate requires INPUT_B marker in the same column`,
+          category: 'missing_input'
+        });
+      }
+      if (requiresR && !inputRSpan) {
+        warnings.push({
+          column: col,
+          row: arithOp.originalRow,
+          gateType: arithOp.gateType,
+          message: `${arithOp.gateType} gate requires INPUT_R marker in the same column`,
+          category: 'missing_input'
+        });
+      }
+
+      // Apply the gate (it will act as identity if inputs are missing)
       currentState = applyArithmeticPermutationDynamic(
         currentState,
         arithOp.gateType,
@@ -1542,20 +1575,42 @@ export const runCircuitWithMeasurements = (
 
     // Apply comparison gates (single-qubit conditional flips)
     for (const compOp of comparisonOps) {
-      if (inputASpan && inputBSpan) {
-        currentState = applyComparisonGate(
-          currentState,
-          compOp.gateType,
-          compOp.row,
-          inputASpan.startRow,
-          inputASpan.endRow,
-          inputBSpan.startRow,
-          inputBSpan.endRow,
-          controlMask,
-          antiControlMask,
-          numFilteredRows
-        );
+      // Comparison gates require both INPUT_A and INPUT_B
+      if (!inputASpan || !inputBSpan) {
+        if (!inputASpan) {
+          warnings.push({
+            column: col,
+            row: compOp.originalRow,
+            gateType: compOp.gateType,
+            message: `${compOp.gateType} gate requires INPUT_A marker in the same column`,
+            category: 'missing_input'
+          });
+        }
+        if (!inputBSpan) {
+          warnings.push({
+            column: col,
+            row: compOp.originalRow,
+            gateType: compOp.gateType,
+            message: `${compOp.gateType} gate requires INPUT_B marker in the same column`,
+            category: 'missing_input'
+          });
+        }
+        // Skip applying the gate since inputs are missing
+        continue;
       }
+
+      currentState = applyComparisonGate(
+        currentState,
+        compOp.gateType,
+        compOp.row,
+        inputASpan.startRow,
+        inputASpan.endRow,
+        inputBSpan.startRow,
+        inputBSpan.endRow,
+        controlMask,
+        antiControlMask,
+        numFilteredRows
+      );
     }
 
     // Apply scalar gates (amplitude multiplications)
@@ -1589,5 +1644,5 @@ export const runCircuitWithMeasurements = (
     }
   }
 
-  return { finalState: currentState, measurements, populatedRows };
+  return { finalState: currentState, measurements, populatedRows, warnings };
 };

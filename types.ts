@@ -379,3 +379,17 @@ export interface CustomGateDefinition {
   label: string;
   matrix: Complex[][];
 }
+
+/** Warning generated during circuit simulation */
+export interface SimulationWarning {
+  /** Column where the warning occurred (0-indexed) */
+  column: number;
+  /** Row where the warning occurred (0-indexed), if applicable */
+  row?: number;
+  /** The gate type that caused the warning */
+  gateType: GateType;
+  /** Human-readable warning message */
+  message: string;
+  /** Warning category for filtering/styling */
+  category: 'missing_input' | 'invalid_operation' | 'no_effect';
+}
