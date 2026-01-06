@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { GateType, CustomGateDefinition, GateParams } from '../types';
 import { GATE_DEFS } from '../constants';
 import { Gate } from './Gate';
+import { Input } from './ui/input';
 
 // Fixed height for the Gate Library bottom pane (in pixels)
-// 4 gate rows × 44px + header ~28px + padding 48px = ~256px
-const GATE_LIBRARY_HEIGHT = 256;
+// 4 gate rows × 44px + header ~28px + padding 48px = ~256px + 34px adjustment
+const GATE_LIBRARY_HEIGHT = 290;
 
 interface GateLibraryProps {
   onHoverGate: (type: GateType | null, params?: GateParams) => void;
   customGates: CustomGateDefinition[];
   onAddCustomGate: () => void;
+  /** Recently used gates (most recent first) */
+  recentGates?: GateType[];
 }
 
 // Sub-library categories
@@ -66,8 +69,50 @@ const ARITHMETIC_GATE_COLUMNS: GateType[][] = [
   [GateType.INPUT_B, GateType.INPUT_R, GateType.INPUT_A],
 ];
 
-export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGates, onAddCustomGate }) => {
+export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGates, onAddCustomGate, recentGates = [] }) => {
   const [activeSubLibrary, setActiveSubLibrary] = useState<SubLibrary>('Standard');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Debounce search query (150ms)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 150);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Handle Escape key to clear search (with stopPropagation to prevent A2 selection clear)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && searchQuery) {
+        e.stopPropagation();
+        setSearchQuery('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [searchQuery]);
+
+  // Collect all gates from all sub-libraries
+  const allGates = useMemo(() => [
+    ...STANDARD_GATE_COLUMNS.flat(),
+    ...FORMULAIC_GATE_COLUMNS.flat(),
+    ...ARITHMETIC_GATE_COLUMNS.flat(),
+  ].filter(Boolean), []);
+
+  // Search results - filter gates by query
+  const searchResults = useMemo(() => {
+    if (!debouncedQuery.trim()) return null;
+    const q = debouncedQuery.toLowerCase();
+    return allGates.filter(type => {
+      const def = GATE_DEFS[type];
+      return def?.fullName?.toLowerCase().includes(q) ||
+             def?.label?.toLowerCase().includes(q) ||
+             def?.description?.toLowerCase().includes(q);
+    });
+  }, [debouncedQuery, allGates]);
+
+  const isSearching = searchResults !== null;
 
   const renderGateColumns = (columns: GateType[][]) => (
     <div className="flex gap-4">
@@ -132,6 +177,42 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
     </div>
   );
 
+  const renderSearchResults = () => {
+    if (!searchResults || searchResults.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-32 text-white/50 text-sm">
+          No gates found
+        </div>
+      );
+    }
+
+    // Group search results into columns of 4 for consistent layout
+    const columns: GateType[][] = [];
+    for (let i = 0; i < searchResults.length; i += 4) {
+      columns.push(searchResults.slice(i, i + 4));
+    }
+
+    return (
+      <div className="flex gap-4">
+        {columns.map((column, colIdx) => (
+          <div key={colIdx} className="flex flex-col gap-1">
+            {column.map((type) => (
+              <div
+                key={type}
+                className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-white/10 transition-colors"
+              >
+                <Gate type={type} onHover={onHoverGate} isGateLibrary />
+                <span className="text-[10px] font-bold text-white uppercase truncate">
+                  {GATE_DEFS[type]?.fullName || type}
+                </span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const renderSubLibraryContent = () => {
     switch (activeSubLibrary) {
       case 'Standard':
@@ -147,38 +228,84 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
     }
   };
 
+  // Render recent gates as a horizontal row
+  const renderRecentGates = () => {
+    if (recentGates.length === 0) return null;
+
+    return (
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[10px] font-bold text-white/70 uppercase shrink-0">
+          Recent
+        </span>
+        <div className="flex gap-1">
+          {recentGates.map((type) => (
+            <Gate key={type} type={type} onHover={onHoverGate} isGateLibrary />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
       className="border-t-2 border-white bg-black px-4 pt-3 pb-6 z-10"
       style={{ height: GATE_LIBRARY_HEIGHT, minHeight: GATE_LIBRARY_HEIGHT, flexShrink: 0 }}
     >
-      {/* Header with label and sub-library tabs */}
-      <div className="flex items-center gap-4 mb-3">
-        <span className="text-sm font-bold text-white uppercase shrink-0">
-          Gate Library
-        </span>
+      {/* Recent gates section (above search) */}
+      {renderRecentGates()}
 
-        {/* Sub-library toggle buttons */}
-        <div className="flex gap-1 shrink-0">
-          {SUB_LIBRARIES.map((lib) => (
+      {/* Search input */}
+      <div className="flex items-center gap-2 mb-3">
+        <div className="relative flex-grow max-w-xs">
+          <Input
+            ref={searchInputRef}
+            type="text"
+            placeholder="Search gates..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-7 bg-black border-white text-white placeholder:text-white/50 text-xs pr-7"
+          />
+          {searchQuery && (
             <button
-              key={lib}
-              onClick={() => setActiveSubLibrary(lib)}
-              className={`px-2 py-1 text-xs font-bold uppercase transition-colors ${
-                activeSubLibrary === lib
-                  ? 'bg-white text-black'
-                  : 'text-white hover:bg-white/20'
-              }`}
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-xs font-bold"
+              aria-label="Clear search"
             >
-              {lib}
+              X
             </button>
-          ))}
+          )}
         </div>
       </div>
 
-      {/* Sub-library content with horizontal scroll */}
+      {/* Header with label and sub-library tabs (hidden when searching) */}
+      {!isSearching && (
+        <div className="flex items-center gap-4 mb-3">
+          <span className="text-sm font-bold text-white uppercase shrink-0">
+            Gate Library
+          </span>
+
+          {/* Sub-library toggle buttons */}
+          <div className="flex gap-1 shrink-0">
+            {SUB_LIBRARIES.map((lib) => (
+              <button
+                key={lib}
+                onClick={() => setActiveSubLibrary(lib)}
+                className={`px-2 py-1 text-xs font-bold uppercase transition-colors ${
+                  activeSubLibrary === lib
+                    ? 'bg-white text-black'
+                    : 'text-white hover:bg-white/20'
+                }`}
+              >
+                {lib}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Sub-library content or search results with horizontal scroll */}
       <div className="overflow-x-auto">
-        {renderSubLibraryContent()}
+        {isSearching ? renderSearchResults() : renderSubLibraryContent()}
       </div>
     </div>
   );
