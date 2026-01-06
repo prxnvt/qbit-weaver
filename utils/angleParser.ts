@@ -1,52 +1,34 @@
+import { parseReal, ParseResult, ParseErrorCode } from './parser';
+
 /**
- * Parses angle expressions like "pi/4", "2*pi", "pi", "0.5", etc.
- * Returns the angle in radians.
+ * Parses angle expressions like "pi/4", "sqrt(2)", "2*pi", "0.5", etc.
+ * Returns the angle in radians, or null on failure (backward compatible).
  */
 export function parseAngleExpression(expr: string): number | null {
   if (!expr || expr.trim() === '') {
     return null;
   }
 
-  const normalized = expr
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '')
-    .replace(/π/g, 'pi');
+  const result = parseReal(expr);
+  return result.success ? result.value : null;
+}
 
-  // Direct number
-  const directNum = parseFloat(normalized);
-  if (!isNaN(directNum) && !normalized.includes('pi')) {
-    return directNum;
+/**
+ * Parses angle expressions with detailed error reporting.
+ * Returns { success: true, value: number } or { success: false, error: ParseError }
+ */
+export function parseAngleExpressionDetailed(expr: string): ParseResult<number> {
+  if (!expr || expr.trim() === '') {
+    return {
+      success: false,
+      error: {
+        code: ParseErrorCode.EMPTY_EXPRESSION,
+        message: 'Expression cannot be empty',
+      },
+    };
   }
 
-  // Handle expressions with pi
-  try {
-    // Replace pi with Math.PI for evaluation
-    let evalExpr = normalized
-      .replace(/pi/g, String(Math.PI))
-      .replace(/\*/g, '*')
-      .replace(/\//g, '/');
-
-    // Handle implicit multiplication: 2pi -> 2*pi
-    evalExpr = evalExpr.replace(/(\d)(3\.14159)/g, '$1*$2');
-
-    // Simple safe evaluation for basic math expressions
-    // Only allow numbers, operators, parentheses, and decimal points
-    if (!/^[\d\.\+\-\*\/\(\)\s]+$/.test(evalExpr)) {
-      return null;
-    }
-
-    // Use Function constructor for safe evaluation of numeric expressions
-    const result = new Function(`return ${evalExpr}`)();
-
-    if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
-      return result;
-    }
-  } catch {
-    // Parse failed
-  }
-
-  return null;
+  return parseReal(expr);
 }
 
 /**
@@ -57,20 +39,20 @@ export function formatAngle(radians: number): string {
 
   // Check for common fractions of pi
   const fractions: [number, string][] = [
-    [2, '2π'],
-    [1, 'π'],
-    [0.5, 'π/2'],
-    [0.25, 'π/4'],
-    [0.125, 'π/8'],
-    [-0.125, '-π/8'],
-    [-0.25, '-π/4'],
-    [-0.5, '-π/2'],
-    [-1, '-π'],
-    [-2, '-2π'],
-    [1/3, 'π/3'],
-    [2/3, '2π/3'],
-    [1/6, 'π/6'],
-    [5/6, '5π/6'],
+    [2, '2\u03c0'],
+    [1, '\u03c0'],
+    [0.5, '\u03c0/2'],
+    [0.25, '\u03c0/4'],
+    [0.125, '\u03c0/8'],
+    [-0.125, '-\u03c0/8'],
+    [-0.25, '-\u03c0/4'],
+    [-0.5, '-\u03c0/2'],
+    [-1, '-\u03c0'],
+    [-2, '-2\u03c0'],
+    [1 / 3, '\u03c0/3'],
+    [2 / 3, '2\u03c0/3'],
+    [1 / 6, '\u03c0/6'],
+    [5 / 6, '5\u03c0/6'],
   ];
 
   for (const [mult, label] of fractions) {
