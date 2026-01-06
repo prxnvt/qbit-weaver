@@ -1,4 +1,26 @@
-import { Complex, GateType, CircuitGrid, GateParams, SimulationWarning, PARAMETERIZED_GATES, ARITHMETIC_FIXED_2X1_GATES, ARITHMETIC_INPUT_GATES, ARITHMETIC_COMPARISON_GATES, ARITHMETIC_SCALAR_GATES, REQUIRES_INPUT_A, REQUIRES_INPUT_B, REQUIRES_INPUT_R } from '../types';
+import {
+  Complex,
+  ComplexArray,
+  GateType,
+  CircuitGrid,
+  GateParams,
+  SimulationWarning,
+  isParameterizedGate,
+  isArithmeticFixed2x1Gate,
+  isArithmeticInputGate,
+  isArithmeticComparisonGate,
+  isArithmeticScalarGate,
+  isRequiresInputAGate,
+  isRequiresInputBGate,
+  isRequiresInputRGate,
+  ARITHMETIC_FIXED_2X1_GATES,
+  ARITHMETIC_INPUT_GATES,
+  ARITHMETIC_COMPARISON_GATES,
+  ARITHMETIC_SCALAR_GATES,
+  REQUIRES_INPUT_A,
+  REQUIRES_INPUT_B,
+  REQUIRES_INPUT_R,
+} from '../types';
 import { GATE_DEFS } from '../constants';
 import {
   EPSILON as COMPLEX_EPSILON,
@@ -14,6 +36,63 @@ export const EPSILON = COMPLEX_EPSILON;
 const INV_SQRT_2 = 1 / Math.sqrt(2);
 const ZERO_COMPLEX: Complex = { re: 0, im: 0 };
 const ONE_COMPLEX: Complex = { re: 1, im: 0 };
+
+// --- ComplexArray Helpers (high-performance interleaved Float64Array) ---
+
+/** Create a new ComplexArray initialized to zeros */
+export const createComplexArray = (length: number): ComplexArray =>
+  new Float64Array(length * 2);
+
+/** Get length (number of complex numbers, NOT Float64Array length) */
+export const complexLength = (arr: ComplexArray): number => arr.length / 2;
+
+/** Check if complex number at index is zero */
+export const isZeroAt = (arr: ComplexArray, i: number): boolean =>
+  arr[i * 2] === 0 && arr[i * 2 + 1] === 0;
+
+/** Get real part at index */
+export const getRe = (arr: ComplexArray, i: number): number => arr[i * 2];
+
+/** Get imaginary part at index */
+export const getIm = (arr: ComplexArray, i: number): number => arr[i * 2 + 1];
+
+/** Set complex number at index from re/im values */
+export const setComplexValues = (arr: ComplexArray, i: number, re: number, im: number): void => {
+  arr[i * 2] = re;
+  arr[i * 2 + 1] = im;
+};
+
+/** Add complex number to value at index (mutating accumulation) */
+export const addToComplex = (arr: ComplexArray, i: number, re: number, im: number): void => {
+  arr[i * 2] += re;
+  arr[i * 2 + 1] += im;
+};
+
+/** Get complex number at index as object (for UI/compatibility) */
+export const getComplex = (arr: ComplexArray, i: number): Complex => ({
+  re: arr[i * 2],
+  im: arr[i * 2 + 1],
+});
+
+/** Convert ComplexArray to legacy Complex[] for UI consumption */
+export const toComplexObjectArray = (arr: ComplexArray): Complex[] => {
+  const len = complexLength(arr);
+  const result: Complex[] = new Array(len);
+  for (let i = 0; i < len; i++) {
+    result[i] = { re: arr[i * 2], im: arr[i * 2 + 1] };
+  }
+  return result;
+};
+
+/** Convert legacy Complex[] to ComplexArray (for tests and external interop) */
+export const fromComplexObjectArray = (arr: Complex[]): ComplexArray => {
+  const result = createComplexArray(arr.length);
+  for (let i = 0; i < arr.length; i++) {
+    result[i * 2] = arr[i].re;
+    result[i * 2 + 1] = arr[i].im;
+  }
+  return result;
+};
 
 // --- Complex Number Math ---
 
@@ -129,7 +208,7 @@ export const getColumnArithmeticInfo = (
     if (!gateType) continue;
 
     // Check for input markers (only process anchor cells, not continuations)
-    if ((ARITHMETIC_INPUT_GATES as readonly GateType[]).includes(gateType) && !cell.params?.isSpanContinuation) {
+    if (isArithmeticInputGate(gateType) && !cell.params?.isSpanContinuation) {
       const span = cell.params?.reverseSpan; // Reusing reverseSpan for arithmetic spans
       if (span) {
         const spanInfo: ArithmeticSpan = {
@@ -144,7 +223,7 @@ export const getColumnArithmeticInfo = (
     }
 
     // Check for spanning arithmetic gates (only process anchor cells)
-    if ((ARITHMETIC_FIXED_2X1_GATES as readonly GateType[]).includes(gateType) && !cell.params?.isSpanContinuation) {
+    if (isArithmeticFixed2x1Gate(gateType) && !cell.params?.isSpanContinuation) {
       const span = cell.params?.reverseSpan;
       if (span) {
         result.arithmeticGates.push({
@@ -156,12 +235,12 @@ export const getColumnArithmeticInfo = (
     }
 
     // Check for comparison gates (single-qubit)
-    if ((ARITHMETIC_COMPARISON_GATES as readonly GateType[]).includes(gateType)) {
+    if (isArithmeticComparisonGate(gateType)) {
       result.comparisonGates.push({ row, gateType });
     }
 
     // Check for scalar gates (single-qubit)
-    if ((ARITHMETIC_SCALAR_GATES as readonly GateType[]).includes(gateType)) {
+    if (isArithmeticScalarGate(gateType)) {
       result.scalarGates.push({ row, gateType });
     }
   }
@@ -352,7 +431,7 @@ const computeArithmeticResult = (
  * These gates permute basis states based on arithmetic operations on register values.
  */
 const applyArithmeticPermutation = (
-  state: Complex[],
+  state: ComplexArray,
   gateType: GateType,
   effectStart: number,
   effectEnd: number,
@@ -362,17 +441,21 @@ const applyArithmeticPermutation = (
   controlMask: number,
   antiControlMask: number,
   numQubits: number
-): Complex[] => {
-  const newState: Complex[] = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
+): ComplexArray => {
+  const len = complexLength(state);
+  const newState = createComplexArray(len);
   const effectSpanSize = effectEnd - effectStart + 1;
   const mod2n = 1 << effectSpanSize; // 2^n for the effect register
 
-  for (let i = 0; i < state.length; i++) {
-    if (isZero(state[i])) continue;
+  for (let i = 0; i < len; i++) {
+    if (isZeroAt(state, i)) continue;
+
+    const stateRe = getRe(state, i);
+    const stateIm = getIm(state, i);
 
     // Check controls
     if ((i & controlMask) !== controlMask || (i & antiControlMask) !== 0) {
-      newState[i] = cAdd(newState[i], state[i]);
+      addToComplex(newState, i, stateRe, stateIm);
       continue;
     }
 
@@ -384,7 +467,7 @@ const applyArithmeticPermutation = (
 
     // Write the new value to get the target state
     const targetIdx = writeRegisterValue(i, newValue, effectStart, effectEnd, numQubits);
-    newState[targetIdx] = cAdd(newState[targetIdx], state[i]);
+    addToComplex(newState, targetIdx, stateRe, stateIm);
   }
 
   return newState;
@@ -395,7 +478,7 @@ const applyArithmeticPermutation = (
  * This version reads input A/B/R values from each basis state dynamically.
  */
 const applyArithmeticPermutationDynamic = (
-  state: Complex[],
+  state: ComplexArray,
   gateType: GateType,
   effectStart: number,
   effectEnd: number,
@@ -405,17 +488,21 @@ const applyArithmeticPermutationDynamic = (
   controlMask: number,
   antiControlMask: number,
   numQubits: number
-): Complex[] => {
-  const newState: Complex[] = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
+): ComplexArray => {
+  const len = complexLength(state);
+  const newState = createComplexArray(len);
   const effectSpanSize = effectEnd - effectStart + 1;
   const mod2n = 1 << effectSpanSize; // 2^n for the effect register
 
-  for (let i = 0; i < state.length; i++) {
-    if (isZero(state[i])) continue;
+  for (let i = 0; i < len; i++) {
+    if (isZeroAt(state, i)) continue;
+
+    const stateRe = getRe(state, i);
+    const stateIm = getIm(state, i);
 
     // Check controls
     if ((i & controlMask) !== controlMask || (i & antiControlMask) !== 0) {
-      newState[i] = cAdd(newState[i], state[i]);
+      addToComplex(newState, i, stateRe, stateIm);
       continue;
     }
 
@@ -438,7 +525,7 @@ const applyArithmeticPermutationDynamic = (
 
     // Write the new value to get the target state
     const targetIdx = writeRegisterValue(i, newValue, effectStart, effectEnd, numQubits);
-    newState[targetIdx] = cAdd(newState[targetIdx], state[i]);
+    addToComplex(newState, targetIdx, stateRe, stateIm);
   }
 
   return newState;
@@ -449,7 +536,7 @@ const applyArithmeticPermutationDynamic = (
  * These gates flip a single target qubit based on comparing inputA and inputB.
  */
 const applyComparisonGate = (
-  state: Complex[],
+  state: ComplexArray,
   gateType: GateType,
   targetRow: number,
   inputAStart: number,
@@ -459,16 +546,20 @@ const applyComparisonGate = (
   controlMask: number,
   antiControlMask: number,
   numQubits: number
-): Complex[] => {
-  const newState: Complex[] = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
+): ComplexArray => {
+  const len = complexLength(state);
+  const newState = createComplexArray(len);
   const targetBit = numQubits - 1 - targetRow;
 
-  for (let i = 0; i < state.length; i++) {
-    if (isZero(state[i])) continue;
+  for (let i = 0; i < len; i++) {
+    if (isZeroAt(state, i)) continue;
+
+    const stateRe = getRe(state, i);
+    const stateIm = getIm(state, i);
 
     // Check controls
     if ((i & controlMask) !== controlMask || (i & antiControlMask) !== 0) {
-      newState[i] = cAdd(newState[i], state[i]);
+      addToComplex(newState, i, stateRe, stateIm);
       continue;
     }
 
@@ -502,9 +593,9 @@ const applyComparisonGate = (
     // If comparison is true, flip the target qubit (apply X)
     if (shouldFlip) {
       const targetIdx = i ^ (1 << targetBit);
-      newState[targetIdx] = cAdd(newState[targetIdx], state[i]);
+      addToComplex(newState, targetIdx, stateRe, stateIm);
     } else {
-      newState[i] = cAdd(newState[i], state[i]);
+      addToComplex(newState, i, stateRe, stateIm);
     }
   }
 
@@ -518,46 +609,52 @@ const applyComparisonGate = (
  * Note: targetRow is kept for API consistency but scalar gates apply globally to controlled subspace.
  */
 const applyScalarGate = (
-  state: Complex[],
+  state: ComplexArray,
   gateType: GateType,
   _targetRow: number, // Unused but kept for consistent API
   controlMask: number,
   antiControlMask: number,
   _numQubits: number  // Unused but kept for consistent API
-): Complex[] => {
-  const newState: Complex[] = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
+): ComplexArray => {
+  const len = complexLength(state);
+  const newState = createComplexArray(len);
 
   // Determine the scalar based on gate type
-  let scalar: Complex;
+  let scalarRe: number;
+  let scalarIm: number;
   switch (gateType) {
     case GateType.SCALE_I:
-      scalar = { re: 0, im: 1 }; // i
+      scalarRe = 0; scalarIm = 1; // i
       break;
     case GateType.SCALE_NEG_I:
-      scalar = { re: 0, im: -1 }; // -i
+      scalarRe = 0; scalarIm = -1; // -i
       break;
     case GateType.SCALE_SQRT_I:
-      scalar = { re: INV_SQRT_2, im: INV_SQRT_2 }; // e^(iπ/4)
+      scalarRe = INV_SQRT_2; scalarIm = INV_SQRT_2; // e^(iπ/4)
       break;
     case GateType.SCALE_SQRT_NEG_I:
-      scalar = { re: INV_SQRT_2, im: -INV_SQRT_2 }; // e^(-iπ/4)
+      scalarRe = INV_SQRT_2; scalarIm = -INV_SQRT_2; // e^(-iπ/4)
       break;
     default:
-      scalar = ONE_COMPLEX; // Identity
+      scalarRe = 1; scalarIm = 0; // Identity
   }
 
-  for (let i = 0; i < state.length; i++) {
-    if (isZero(state[i])) continue;
+  for (let i = 0; i < len; i++) {
+    if (isZeroAt(state, i)) continue;
+
+    const stateRe = getRe(state, i);
+    const stateIm = getIm(state, i);
 
     // Check controls
     if ((i & controlMask) !== controlMask || (i & antiControlMask) !== 0) {
-      newState[i] = cAdd(newState[i], state[i]);
+      addToComplex(newState, i, stateRe, stateIm);
       continue;
     }
 
-    // Apply the scalar multiplication
-    const scaled = cMul(state[i], scalar);
-    newState[i] = cAdd(newState[i], scaled);
+    // Apply the scalar multiplication: (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+    const scaledRe = stateRe * scalarRe - stateIm * scalarIm;
+    const scaledIm = stateRe * scalarIm + stateIm * scalarRe;
+    addToComplex(newState, i, scaledRe, scaledIm);
   }
 
   return newState;
@@ -608,15 +705,15 @@ export const validateCircuit = (grid: CircuitGrid): ValidationError[] => {
       const span = cell.params?.reverseSpan;
 
       // Input markers (A, B, R)
-      if ((ARITHMETIC_INPUT_GATES as readonly GateType[]).includes(gateType) && span) {
+      if (isArithmeticInputGate(gateType) && span) {
         inputGates.push({ anchorRow: row, gateType, span });
       }
       // Arithmetic gates (spanning or comparison - all are 2x1 now)
-      else if ((ARITHMETIC_FIXED_2X1_GATES as readonly GateType[]).includes(gateType) && span) {
+      else if (isArithmeticFixed2x1Gate(gateType) && span) {
         arithmeticGates.push({ anchorRow: row, gateType, span });
       }
       // Comparison gates are also 2x1 now
-      else if ((ARITHMETIC_COMPARISON_GATES as readonly GateType[]).includes(gateType) && span) {
+      else if (isArithmeticComparisonGate(gateType) && span) {
         arithmeticGates.push({ anchorRow: row, gateType, span });
       }
     }
@@ -628,9 +725,9 @@ export const validateCircuit = (grid: CircuitGrid): ValidationError[] => {
 
     // Validate each arithmetic gate
     for (const gate of arithmeticGates) {
-      const requiresA = (REQUIRES_INPUT_A as readonly GateType[]).includes(gate.gateType);
-      const requiresB = (REQUIRES_INPUT_B as readonly GateType[]).includes(gate.gateType);
-      const requiresR = (REQUIRES_INPUT_R as readonly GateType[]).includes(gate.gateType);
+      const requiresA = isRequiresInputAGate(gate.gateType);
+      const requiresB = isRequiresInputBGate(gate.gateType);
+      const requiresR = isRequiresInputRGate(gate.gateType);
 
       // Check that required input markers exist in the same column
       if (requiresA && !inputAGate) {
@@ -744,7 +841,7 @@ export const getRzMatrix = (theta: number): Complex[][] => {
  */
 export const getGateMatrix = (gateType: GateType, params?: GateParams): Complex[][] => {
   // Handle parameterized rotation gates (cannot cache, depend on params)
-  if ((PARAMETERIZED_GATES as readonly GateType[]).includes(gateType)) {
+  if (isParameterizedGate(gateType)) {
     const angle = params?.angle ?? 0;
     switch (gateType) {
       case GateType.RX:
@@ -843,10 +940,392 @@ export const getGateMatrix = (gateType: GateType, params?: GateParams): Complex[
 
 // --- Simulation Logic ---
 
-export const createInitialState = (numQubits: number): Complex[] => {
+// --- Types for simulateColumn ---
+
+/** Configuration options for simulateColumn */
+interface SimulateColumnOptions {
+  /** Number of qubits in the simulation space */
+  numQubits: number;
+  /** Current column index (for warning messages) */
+  columnIndex: number;
+  /** Row mapping: original row -> filtered row. If null, uses identity mapping (all rows) */
+  rowMapping: Map<number, number> | null;
+  /** Whether to process advanced gates (REVERSE, arithmetic, comparison, scalar) */
+  processAdvancedGates: boolean;
+  /** Array to collect warnings. If null, warnings are not collected */
+  warnings: SimulationWarning[] | null;
+}
+
+/** Result of simulating a single column */
+interface SimulateColumnResult {
+  /** The quantum state after applying all gates in this column */
+  state: ComplexArray;
+  /** Rows that had MEASURE gates (filtered indices, for caller to handle) */
+  measureRows: number[];
+  /** Original row indices for measurement rows (for result mapping) */
+  measureOriginalRows: number[];
+}
+
+// --- Helpers for simulateColumn ---
+
+/**
+ * Calculate control and anti-control masks for a column.
+ * After basis transformations (H for X, S†H for Y):
+ * - X_CONTROL (|+⟩) → anti-control (H|+⟩ = |0⟩)
+ * - X_ANTI_CONTROL (|-⟩) → control (H|-⟩ = |1⟩)
+ * - Y_CONTROL (|+i⟩) → anti-control (S†H|+i⟩ = |0⟩)
+ * - Y_ANTI_CONTROL (|-i⟩) → control (S†H|-i⟩ = |1⟩)
+ */
+const calculateControlMasks = (
+  controls: number[],
+  antiControls: number[],
+  xControls: number[],
+  xAntiControls: number[],
+  yControls: number[],
+  yAntiControls: number[],
+  numQubits: number
+): { controlMask: number; antiControlMask: number } => {
+  // Control mask: bits that must be 1 for gate to activate
+  let controlMask = 0;
+  for (const r of controls) {
+    controlMask |= 1 << (numQubits - 1 - r);
+  }
+  // X_ANTI_CONTROL and Y_ANTI_CONTROL become regular controls after basis change
+  for (const r of xAntiControls) {
+    controlMask |= 1 << (numQubits - 1 - r);
+  }
+  for (const r of yAntiControls) {
+    controlMask |= 1 << (numQubits - 1 - r);
+  }
+
+  // Anti-control mask: bits that must be 0 for gate to activate
+  let antiControlMask = 0;
+  for (const r of antiControls) {
+    antiControlMask |= 1 << (numQubits - 1 - r);
+  }
+  // X_CONTROL and Y_CONTROL become anti-controls after basis change
+  for (const r of xControls) {
+    antiControlMask |= 1 << (numQubits - 1 - r);
+  }
+  for (const r of yControls) {
+    antiControlMask |= 1 << (numQubits - 1 - r);
+  }
+
+  return { controlMask, antiControlMask };
+};
+
+/**
+ * Pair adjacent SWAP gates in a column.
+ * SWAPs are applied pairwise: [row0, row1, row2, row3] → [(row0,row1), (row2,row3)]
+ */
+const pairSwaps = (swaps: number[]): [number, number][] => {
+  const pairs: [number, number][] = [];
+  for (let i = 0; i < swaps.length - 1; i += 2) {
+    pairs.push([swaps[i], swaps[i + 1]]);
+  }
+  return pairs;
+};
+
+/**
+ * Simulate a single column of the circuit grid.
+ *
+ * This unified helper handles all column simulation logic:
+ * - Gate identification (controls, operations, SWAP, MEASURE, etc.)
+ * - Basis transformations for X/Y controls
+ * - Control mask calculation
+ * - Gate application (standard, REVERSE, arithmetic, comparison, scalar)
+ * - Warning collection for missing arithmetic inputs
+ *
+ * Measurements are NOT performed here - measureRows are returned for caller to handle.
+ */
+const simulateColumn = (
+  state: ComplexArray,
+  grid: CircuitGrid,
+  col: number,
+  options: SimulateColumnOptions
+): SimulateColumnResult => {
+  const { numQubits, columnIndex, rowMapping, processAdvancedGates, warnings } = options;
+  const numRows = grid.length;
+
+  // Collections for identified gates
+  const controls: number[] = [];
+  const antiControls: number[] = [];
+  const xControls: number[] = [];
+  const xAntiControls: number[] = [];
+  const yControls: number[] = [];
+  const yAntiControls: number[] = [];
+  const swaps: number[] = [];
+  const operations: { row: number; type: GateType; params?: GateParams }[] = [];
+  const measureRows: number[] = [];
+  const measureOriginalRows: number[] = [];
+
+  // Advanced gate collections (only used when processAdvancedGates=true)
+  const reverseGates: { startRow: number; endRow: number }[] = [];
+  const arithmeticOps: { startRow: number; endRow: number; gateType: GateType; originalRow: number }[] = [];
+  const comparisonOps: { row: number; gateType: GateType; originalRow: number }[] = [];
+  const scalarOps: { row: number; gateType: GateType }[] = [];
+  let inputASpan: { startRow: number; endRow: number } | null = null;
+  let inputBSpan: { startRow: number; endRow: number } | null = null;
+  let inputRSpan: { startRow: number; endRow: number } | null = null;
+
+  // Determine which rows to iterate over
+  const rowsToProcess = rowMapping
+    ? Array.from(rowMapping.keys())
+    : Array.from({ length: numRows }, (_, i) => i);
+
+  // Identify gates in this column
+  for (const originalRow of rowsToProcess) {
+    const cell = grid[originalRow][col];
+    const type = cell.gate;
+    if (!type) continue;
+
+    const filteredRow = rowMapping ? rowMapping.get(originalRow)! : originalRow;
+
+    if (type === GateType.CONTROL) {
+      controls.push(filteredRow);
+    } else if (type === GateType.ANTI_CONTROL) {
+      antiControls.push(filteredRow);
+    } else if (type === GateType.X_CONTROL) {
+      xControls.push(filteredRow);
+    } else if (type === GateType.X_ANTI_CONTROL) {
+      xAntiControls.push(filteredRow);
+    } else if (type === GateType.Y_CONTROL) {
+      yControls.push(filteredRow);
+    } else if (type === GateType.Y_ANTI_CONTROL) {
+      yAntiControls.push(filteredRow);
+    } else if (type === GateType.SWAP) {
+      swaps.push(filteredRow);
+    } else if (type === GateType.MEASURE) {
+      if (processAdvancedGates) {
+        // In execution mode, track measurements for caller to handle
+        measureRows.push(filteredRow);
+        measureOriginalRows.push(originalRow);
+      } else {
+        // In visualization mode, treat MEASURE as identity
+        operations.push({ row: filteredRow, type: GateType.I, params: cell.params });
+      }
+    } else if (processAdvancedGates) {
+      // Advanced gates only processed when enabled
+      if (type === GateType.REVERSE && !cell.params?.isSpanContinuation) {
+        const span = cell.params?.reverseSpan;
+        if (span && rowMapping) {
+          const filteredStart = rowMapping.get(span.startRow);
+          const filteredEnd = rowMapping.get(span.endRow);
+          if (filteredStart !== undefined && filteredEnd !== undefined) {
+            reverseGates.push({ startRow: filteredStart, endRow: filteredEnd });
+          }
+        }
+      } else if (type === GateType.INPUT_A && !cell.params?.isSpanContinuation) {
+        const span = cell.params?.reverseSpan;
+        if (span && rowMapping) {
+          const filteredStart = rowMapping.get(span.startRow);
+          const filteredEnd = rowMapping.get(span.endRow);
+          if (filteredStart !== undefined && filteredEnd !== undefined) {
+            inputASpan = { startRow: filteredStart, endRow: filteredEnd };
+          }
+        }
+      } else if (type === GateType.INPUT_B && !cell.params?.isSpanContinuation) {
+        const span = cell.params?.reverseSpan;
+        if (span && rowMapping) {
+          const filteredStart = rowMapping.get(span.startRow);
+          const filteredEnd = rowMapping.get(span.endRow);
+          if (filteredStart !== undefined && filteredEnd !== undefined) {
+            inputBSpan = { startRow: filteredStart, endRow: filteredEnd };
+          }
+        }
+      } else if (type === GateType.INPUT_R && !cell.params?.isSpanContinuation) {
+        const span = cell.params?.reverseSpan;
+        if (span && rowMapping) {
+          const filteredStart = rowMapping.get(span.startRow);
+          const filteredEnd = rowMapping.get(span.endRow);
+          if (filteredStart !== undefined && filteredEnd !== undefined) {
+            inputRSpan = { startRow: filteredStart, endRow: filteredEnd };
+          }
+        }
+      } else if (isArithmeticFixed2x1Gate(type) && !cell.params?.isSpanContinuation) {
+        const span = cell.params?.reverseSpan;
+        if (span && rowMapping) {
+          const filteredStart = rowMapping.get(span.startRow);
+          const filteredEnd = rowMapping.get(span.endRow);
+          if (filteredStart !== undefined && filteredEnd !== undefined) {
+            arithmeticOps.push({ startRow: filteredStart, endRow: filteredEnd, gateType: type, originalRow });
+          }
+        }
+      } else if (isArithmeticComparisonGate(type)) {
+        comparisonOps.push({ row: filteredRow, gateType: type, originalRow });
+      } else if (isArithmeticScalarGate(type)) {
+        scalarOps.push({ row: filteredRow, gateType: type });
+      } else if (!isArithmeticInputGate(type) && !isArithmeticFixed2x1Gate(type) && type !== GateType.REVERSE) {
+        operations.push({ row: filteredRow, type, params: cell.params });
+      }
+    } else {
+      // Standard gate in visualization mode
+      if (type === GateType.CCX) {
+        operations.push({ row: filteredRow, type: GateType.CCX, params: cell.params });
+      } else {
+        operations.push({ row: filteredRow, type, params: cell.params });
+      }
+    }
+  }
+
+  // Create working copy of state
+  let nextState = new Float64Array(state);
+
+  // Apply basis transformations for X/Y controls
+  for (const r of [...xControls, ...xAntiControls]) {
+    nextState = applyGate(nextState, GateType.H, r, 0, numQubits);
+  }
+  for (const r of [...yControls, ...yAntiControls]) {
+    nextState = applySdagger(nextState, r, numQubits);
+    nextState = applyGate(nextState, GateType.H, r, 0, numQubits);
+  }
+
+  // Calculate control masks
+  const { controlMask, antiControlMask } = calculateControlMasks(
+    controls, antiControls, xControls, xAntiControls, yControls, yAntiControls, numQubits
+  );
+
+  // Apply SWAPs
+  const swapPairs = pairSwaps(swaps);
+  for (const [r1, r2] of swapPairs) {
+    nextState = applySwapWithAntiControl(nextState, r1, r2, controlMask, antiControlMask, numQubits);
+  }
+
+  // Apply standard gates
+  for (const op of operations) {
+    nextState = applyGateWithAntiControl(nextState, op.type, op.row, controlMask, antiControlMask, numQubits, op.params);
+  }
+
+  // Apply advanced gates (when enabled)
+  if (processAdvancedGates) {
+    // REVERSE gates
+    for (const rev of reverseGates) {
+      nextState = applyBitReversePermutation(nextState, rev.startRow, rev.endRow, numQubits);
+    }
+
+    // Arithmetic gates with warning collection
+    for (const arithOp of arithmeticOps) {
+      if (warnings) {
+        const requiresA = isRequiresInputAGate(arithOp.gateType);
+        const requiresB = isRequiresInputBGate(arithOp.gateType);
+        const requiresR = isRequiresInputRGate(arithOp.gateType);
+
+        if (requiresA && !inputASpan) {
+          warnings.push({
+            column: columnIndex,
+            row: arithOp.originalRow,
+            gateType: arithOp.gateType,
+            message: `${arithOp.gateType} gate requires INPUT_A marker in the same column`,
+            category: 'missing_input'
+          });
+        }
+        if (requiresB && !inputBSpan) {
+          warnings.push({
+            column: columnIndex,
+            row: arithOp.originalRow,
+            gateType: arithOp.gateType,
+            message: `${arithOp.gateType} gate requires INPUT_B marker in the same column`,
+            category: 'missing_input'
+          });
+        }
+        if (requiresR && !inputRSpan) {
+          warnings.push({
+            column: columnIndex,
+            row: arithOp.originalRow,
+            gateType: arithOp.gateType,
+            message: `${arithOp.gateType} gate requires INPUT_R marker in the same column`,
+            category: 'missing_input'
+          });
+        }
+      }
+
+      nextState = applyArithmeticPermutationDynamic(
+        nextState,
+        arithOp.gateType,
+        arithOp.startRow,
+        arithOp.endRow,
+        inputASpan,
+        inputBSpan,
+        inputRSpan,
+        controlMask,
+        antiControlMask,
+        numQubits
+      );
+    }
+
+    // Comparison gates
+    for (const compOp of comparisonOps) {
+      if (!inputASpan || !inputBSpan) {
+        if (warnings) {
+          if (!inputASpan) {
+            warnings.push({
+              column: columnIndex,
+              row: compOp.originalRow,
+              gateType: compOp.gateType,
+              message: `${compOp.gateType} gate requires INPUT_A marker in the same column`,
+              category: 'missing_input'
+            });
+          }
+          if (!inputBSpan) {
+            warnings.push({
+              column: columnIndex,
+              row: compOp.originalRow,
+              gateType: compOp.gateType,
+              message: `${compOp.gateType} gate requires INPUT_B marker in the same column`,
+              category: 'missing_input'
+            });
+          }
+        }
+        continue;
+      }
+
+      nextState = applyComparisonGate(
+        nextState,
+        compOp.gateType,
+        compOp.row,
+        inputASpan.startRow,
+        inputASpan.endRow,
+        inputBSpan.startRow,
+        inputBSpan.endRow,
+        controlMask,
+        antiControlMask,
+        numQubits
+      );
+    }
+
+    // Scalar gates
+    for (const scalarOp of scalarOps) {
+      nextState = applyScalarGate(
+        nextState,
+        scalarOp.gateType,
+        scalarOp.row,
+        controlMask,
+        antiControlMask,
+        numQubits
+      );
+    }
+  }
+
+  // Undo basis transformations
+  for (const r of [...xControls, ...xAntiControls]) {
+    nextState = applyGate(nextState, GateType.H, r, 0, numQubits);
+  }
+  for (const r of [...yControls, ...yAntiControls]) {
+    nextState = applyGate(nextState, GateType.H, r, 0, numQubits);
+    nextState = applyS(nextState, r, numQubits);
+  }
+
+  return {
+    state: nextState,
+    measureRows,
+    measureOriginalRows
+  };
+};
+
+export const createInitialState = (numQubits: number): ComplexArray => {
   const size = Math.pow(2, numQubits);
-  const state: Complex[] = new Array(size).fill(0).map(() => ({ re: 0, im: 0 }));
-  state[0] = { re: 1, im: 0 };
+  const state = createComplexArray(size);
+  state[0] = 1; // re of |0...0⟩ = 1 (im already 0)
   return state;
 };
 
@@ -855,7 +1334,7 @@ export const simulateCircuit = (grid: CircuitGrid): Complex[][] => {
   const numCols = grid[0]?.length || 0;
 
   let currentState = createInitialState(numRows);
-  const history: Complex[][] = [currentState];
+  const history: ComplexArray[] = [currentState];
 
   for (let col = 0; col < numCols; col++) {
     // 1. Identify Gates and Controls in this column
@@ -903,7 +1382,7 @@ export const simulateCircuit = (grid: CircuitGrid): Complex[][] => {
       swapPairs.push([swaps[i], swaps[i+1]]);
     }
 
-    let nextState = [...currentState];
+    let nextState: ComplexArray = new Float64Array(currentState);
 
     // 3. Apply basis transformations for X/Y controls
     // X-basis: H transforms |+⟩ → |0⟩ and |-⟩ → |1⟩
@@ -972,29 +1451,34 @@ export const simulateCircuit = (grid: CircuitGrid): Complex[][] => {
     history.push(currentState);
   }
 
-  return history;
+  // Convert ComplexArray[] to Complex[][] for backward compatibility
+  return history.map(toComplexObjectArray);
 };
 
 const applyGate = (
-    state: Complex[],
+    state: ComplexArray,
     gateType: GateType,
     row: number,
     controlMask: number,
     numQubits: number,
     params?: GateParams
-): Complex[] => {
+): ComplexArray => {
     const matrix = getGateMatrix(gateType, params);
-    const newState = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
+    const len = complexLength(state);
+    const newState = createComplexArray(len);
     const bit = numQubits - 1 - row;
 
-    for (let i = 0; i < state.length; i++) {
+    for (let i = 0; i < len; i++) {
         // If state is zero, skip
-        if (isZero(state[i])) continue;
+        if (isZeroAt(state, i)) continue;
+
+        const stateRe = getRe(state, i);
+        const stateIm = getIm(state, i);
 
         // Check controls
         // If controls are NOT satisfied, this gate acts as Identity
         if ((i & controlMask) !== controlMask) {
-            newState[i] = cAdd(newState[i], state[i]); // Identity
+            addToComplex(newState, i, stateRe, stateIm); // Identity
             continue;
         }
 
@@ -1012,8 +1496,10 @@ const applyGate = (
             if (isZero(matrixElem)) continue;
 
             const targetIdx = otherBits | (k << bit);
-            const val = cMul(matrixElem, state[i]);
-            newState[targetIdx] = cAdd(newState[targetIdx], val);
+            // Inline cMul: (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+            const valRe = matrixElem.re * stateRe - matrixElem.im * stateIm;
+            const valIm = matrixElem.re * stateIm + matrixElem.im * stateRe;
+            addToComplex(newState, targetIdx, valRe, valIm);
         }
     }
     return newState;
@@ -1023,48 +1509,54 @@ const applyGate = (
 // --- S and S† gate helpers for Y-basis control ---
 
 const applyS = (
-  state: Complex[],
+  state: ComplexArray,
   row: number,
   numQubits: number
-): Complex[] => {
+): ComplexArray => {
   // S = [[1, 0], [0, i]]
-  const newState = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
+  const len = complexLength(state);
+  const newState = createComplexArray(len);
   const bit = numQubits - 1 - row;
 
-  for (let i = 0; i < state.length; i++) {
-    if (isZero(state[i])) continue;
+  for (let i = 0; i < len; i++) {
+    if (isZeroAt(state, i)) continue;
 
+    const stateRe = getRe(state, i);
+    const stateIm = getIm(state, i);
     const localIdx = (i >> bit) & 1;
     if (localIdx === 0) {
       // |0⟩ → |0⟩ (multiply by 1)
-      newState[i] = cAdd(newState[i], state[i]);
+      addToComplex(newState, i, stateRe, stateIm);
     } else {
-      // |1⟩ → i|1⟩
-      newState[i] = cAdd(newState[i], { re: -state[i].im, im: state[i].re });
+      // |1⟩ → i|1⟩ (multiply by i: (a+bi)*i = -b + ai)
+      addToComplex(newState, i, -stateIm, stateRe);
     }
   }
   return newState;
 };
 
 const applySdagger = (
-  state: Complex[],
+  state: ComplexArray,
   row: number,
   numQubits: number
-): Complex[] => {
+): ComplexArray => {
   // S† = [[1, 0], [0, -i]]
-  const newState = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
+  const len = complexLength(state);
+  const newState = createComplexArray(len);
   const bit = numQubits - 1 - row;
 
-  for (let i = 0; i < state.length; i++) {
-    if (isZero(state[i])) continue;
+  for (let i = 0; i < len; i++) {
+    if (isZeroAt(state, i)) continue;
 
+    const stateRe = getRe(state, i);
+    const stateIm = getIm(state, i);
     const localIdx = (i >> bit) & 1;
     if (localIdx === 0) {
       // |0⟩ → |0⟩ (multiply by 1)
-      newState[i] = cAdd(newState[i], state[i]);
+      addToComplex(newState, i, stateRe, stateIm);
     } else {
-      // |1⟩ → -i|1⟩
-      newState[i] = cAdd(newState[i], { re: state[i].im, im: -state[i].re });
+      // |1⟩ → -i|1⟩ (multiply by -i: (a+bi)*(-i) = b - ai)
+      addToComplex(newState, i, stateIm, -stateRe);
     }
   }
   return newState;
@@ -1096,11 +1588,11 @@ const bitReverse = (k: number, n: number): number => {
  * But |0100⟩ would become |0010⟩ (qubits 1 and 2 swapped)
  */
 const applyBitReversePermutation = (
-  state: Complex[],
+  state: ComplexArray,
   startRow: number,
   endRow: number,
   numQubits: number
-): Complex[] => {
+): ComplexArray => {
   const spanSize = endRow - startRow + 1;
 
   // If span is 1, it's identity
@@ -1108,15 +1600,16 @@ const applyBitReversePermutation = (
     return state;
   }
 
-  const newState: Complex[] = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
+  const len = complexLength(state);
+  const newState = createComplexArray(len);
 
   // Convert row indices to bit positions (rows are numbered top-to-bottom, bits are numbered right-to-left)
   // Row 0 = most significant bit, Row n-1 = least significant bit
   const startBit = numQubits - 1 - endRow;   // LSB of span
   const endBit = numQubits - 1 - startRow;   // MSB of span
 
-  for (let i = 0; i < state.length; i++) {
-    if (isZero(state[i])) continue;
+  for (let i = 0; i < len; i++) {
+    if (isZeroAt(state, i)) continue;
 
     // Extract the bits within the span
     let spanBits = 0;
@@ -1142,7 +1635,7 @@ const applyBitReversePermutation = (
       }
     }
 
-    newState[newIdx] = cAdd(newState[newIdx], state[i]);
+    addToComplex(newState, newIdx, getRe(state, i), getIm(state, i));
   }
 
   return newState;
@@ -1151,18 +1644,19 @@ const applyBitReversePermutation = (
 // --- Gate application with anti-control support ---
 
 const applySwapWithAntiControl = (
-  state: Complex[],
+  state: ComplexArray,
   row1: number,
   row2: number,
   controlMask: number,
   antiControlMask: number,
   numQubits: number
-): Complex[] => {
-  const newState = [...state];
+): ComplexArray => {
+  const newState = new Float64Array(state); // Copy the TypedArray
+  const len = complexLength(state);
   const bit1 = numQubits - 1 - row1;
   const bit2 = numQubits - 1 - row2;
 
-  for (let i = 0; i < state.length; i++) {
+  for (let i = 0; i < len; i++) {
     // Check controls (must be 1) and anti-controls (must be 0)
     if ((i & controlMask) !== controlMask) continue;
     if ((i & antiControlMask) !== 0) continue;
@@ -1173,9 +1667,13 @@ const applySwapWithAntiControl = (
     if (b1 !== b2) {
       const j = i ^ (1 << bit1) ^ (1 << bit2);
       if (i < j) {
-        const temp = newState[i];
-        newState[i] = newState[j];
-        newState[j] = temp;
+        // Swap re and im for indices i and j
+        const tempRe = newState[i * 2];
+        const tempIm = newState[i * 2 + 1];
+        newState[i * 2] = newState[j * 2];
+        newState[i * 2 + 1] = newState[j * 2 + 1];
+        newState[j * 2] = tempRe;
+        newState[j * 2 + 1] = tempIm;
       }
     }
   }
@@ -1183,20 +1681,24 @@ const applySwapWithAntiControl = (
 };
 
 const applyGateWithAntiControl = (
-  state: Complex[],
+  state: ComplexArray,
   gateType: GateType,
   row: number,
   controlMask: number,
   antiControlMask: number,
   numQubits: number,
   params?: GateParams
-): Complex[] => {
+): ComplexArray => {
   const matrix = getGateMatrix(gateType, params);
-  const newState = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
+  const len = complexLength(state);
+  const newState = createComplexArray(len);
   const bit = numQubits - 1 - row;
 
-  for (let i = 0; i < state.length; i++) {
-    if (isZero(state[i])) continue;
+  for (let i = 0; i < len; i++) {
+    if (isZeroAt(state, i)) continue;
+
+    const stateRe = getRe(state, i);
+    const stateIm = getIm(state, i);
 
     // Check controls (must be 1) and anti-controls (must be 0)
     const controlsSatisfied = (i & controlMask) === controlMask;
@@ -1204,7 +1706,7 @@ const applyGateWithAntiControl = (
 
     if (!controlsSatisfied || !antiControlsSatisfied) {
       // Gate acts as identity
-      newState[i] = cAdd(newState[i], state[i]);
+      addToComplex(newState, i, stateRe, stateIm);
       continue;
     }
 
@@ -1217,8 +1719,10 @@ const applyGateWithAntiControl = (
       if (isZero(matrixElem)) continue;
 
       const targetIdx = otherBits | (k << bit);
-      const val = cMul(matrixElem, state[i]);
-      newState[targetIdx] = cAdd(newState[targetIdx], val);
+      // Inline cMul: (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+      const valRe = matrixElem.re * stateRe - matrixElem.im * stateIm;
+      const valIm = matrixElem.re * stateIm + matrixElem.im * stateRe;
+      addToComplex(newState, targetIdx, valRe, valIm);
     }
   }
   return newState;
@@ -1226,40 +1730,44 @@ const applyGateWithAntiControl = (
 
 // --- Visualization Logic ---
 
-export const getBlochVector = (state: Complex[], targetQubit: number, totalQubits: number): [number, number, number] => {
+export const getBlochVector = (state: ComplexArray, targetQubit: number, totalQubits: number): [number, number, number] => {
   let expX = 0;
   let expY = 0;
   let expZ = 0;
-  
+
   const N = totalQubits;
-  const bitK = N - 1 - targetQubit; 
-  
-  for (let i = 0; i < state.length; i++) {
-    const amp = state[i];
-    const absSq = cAbsSq(amp);
-    
+  const bitK = N - 1 - targetQubit;
+  const len = complexLength(state);
+
+  for (let i = 0; i < len; i++) {
+    const ampRe = getRe(state, i);
+    const ampIm = getIm(state, i);
+    const absSq = ampRe * ampRe + ampIm * ampIm;
+
     // Z expectation
     if (((i >> bitK) & 1) === 0) {
         expZ += absSq;
     } else {
         expZ -= absSq;
     }
-    
+
     // X and Y
     if (((i >> bitK) & 1) === 0) {
         const idx1 = i | (1 << bitK);
-        if (idx1 >= state.length) continue; 
+        if (idx1 >= len) continue;
 
-        const c0 = state[i];
-        const c1 = state[idx1];
+        const c0Re = ampRe;
+        const c0Im = ampIm;
+        const c1Re = getRe(state, idx1);
+        const c1Im = getIm(state, idx1);
 
-        const termRe = c0.re * c1.re + c0.im * c1.im;
+        const termRe = c0Re * c1Re + c0Im * c1Im;
 
         expX += 2 * termRe;
-        expY += 2 * (c1.im * c0.re - c1.re * c0.im);
+        expY += 2 * (c1Im * c0Re - c1Re * c0Im);
     }
   }
-  
+
   return [expX, expY, expZ];
 };
 
@@ -1274,17 +1782,20 @@ export const getBlochVector = (state: Complex[], targetQubit: number, totalQubit
  * If r <= |a|^2, collapse to 0; otherwise collapse to 1.
  */
 export const measureQubit = (
-  state: Complex[],
+  state: ComplexArray,
   qubit: number,
   numQubits: number
-): { result: 0 | 1; probability: number; collapsedState: Complex[] } => {
+): { result: 0 | 1; probability: number; collapsedState: ComplexArray } => {
   const bit = numQubits - 1 - qubit;
+  const len = complexLength(state);
 
   // Calculate probability of measuring 0
   let prob0 = 0;
-  for (let i = 0; i < state.length; i++) {
+  for (let i = 0; i < len; i++) {
     if (((i >> bit) & 1) === 0) {
-      prob0 += cAbsSq(state[i]);
+      const re = getRe(state, i);
+      const im = getIm(state, i);
+      prob0 += re * re + im * im;
     }
   }
 
@@ -1294,19 +1805,18 @@ export const measureQubit = (
   const measuredProb = result === 0 ? prob0 : 1 - prob0;
 
   // Collapse the state
-  const collapsedState: Complex[] = new Array(state.length).fill(0).map(() => ({ re: 0, im: 0 }));
+  const collapsedState = createComplexArray(len);
   const normFactor = Math.sqrt(measuredProb);
 
-  for (let i = 0; i < state.length; i++) {
+  for (let i = 0; i < len; i++) {
     const bitVal = (i >> bit) & 1;
     if (bitVal === result) {
       // Normalize this amplitude
-      collapsedState[i] = {
-        re: state[i].re / normFactor,
-        im: state[i].im / normFactor
-      };
+      const re = getRe(state, i) / normFactor;
+      const im = getIm(state, i) / normFactor;
+      setComplexValues(collapsedState, i, re, im);
     }
-    // Other amplitudes remain 0
+    // Other amplitudes remain 0 (already initialized)
   }
 
   return { result, probability: measuredProb, collapsedState };
@@ -1336,7 +1846,7 @@ export const runCircuitWithMeasurements = (
   // If no gates at all, return default state for all qubits
   if (populatedRows.length === 0) {
     return {
-      finalState: createInitialState(numRows),
+      finalState: toComplexObjectArray(createInitialState(numRows)),
       measurements: [],
       populatedRows: [],
       warnings: []
@@ -1438,7 +1948,7 @@ export const runCircuitWithMeasurements = (
         }
       }
       // Arithmetic spanning gates
-      else if ((ARITHMETIC_FIXED_2X1_GATES as readonly GateType[]).includes(type) && !cell.params?.isSpanContinuation) {
+      else if (isArithmeticFixed2x1Gate(type) && !cell.params?.isSpanContinuation) {
         const span = cell.params?.reverseSpan;
         if (span) {
           const filteredStart = rowToFiltered.get(span.startRow);
@@ -1449,16 +1959,16 @@ export const runCircuitWithMeasurements = (
         }
       }
       // Comparison gates (single-qubit)
-      else if ((ARITHMETIC_COMPARISON_GATES as readonly GateType[]).includes(type)) {
+      else if (isArithmeticComparisonGate(type)) {
         comparisonOps.push({ row: filteredRow, gateType: type, originalRow });
       }
       // Scalar gates (single-qubit)
-      else if ((ARITHMETIC_SCALAR_GATES as readonly GateType[]).includes(type)) {
+      else if (isArithmeticScalarGate(type)) {
         scalarOps.push({ row: filteredRow, gateType: type });
       }
       // Skip input marker and arithmetic continuation cells
-      else if (!(ARITHMETIC_INPUT_GATES as readonly GateType[]).includes(type) &&
-               !(ARITHMETIC_FIXED_2X1_GATES as readonly GateType[]).includes(type) &&
+      else if (!isArithmeticInputGate(type) &&
+               !isArithmeticFixed2x1Gate(type) &&
                type !== GateType.REVERSE) {
         operations.push({ row: filteredRow, type, params: cell.params });
       }
@@ -1529,9 +2039,9 @@ export const runCircuitWithMeasurements = (
     // Apply arithmetic spanning gates (permutations)
     for (const arithOp of arithmeticOps) {
       // Check for missing required inputs and generate warnings
-      const requiresA = (REQUIRES_INPUT_A as readonly GateType[]).includes(arithOp.gateType);
-      const requiresB = (REQUIRES_INPUT_B as readonly GateType[]).includes(arithOp.gateType);
-      const requiresR = (REQUIRES_INPUT_R as readonly GateType[]).includes(arithOp.gateType);
+      const requiresA = isRequiresInputAGate(arithOp.gateType);
+      const requiresB = isRequiresInputBGate(arithOp.gateType);
+      const requiresR = isRequiresInputRGate(arithOp.gateType);
 
       if (requiresA && !inputASpan) {
         warnings.push({
@@ -1647,5 +2157,5 @@ export const runCircuitWithMeasurements = (
     }
   }
 
-  return { finalState: currentState, measurements, populatedRows, warnings };
+  return { finalState: toComplexObjectArray(currentState), measurements, populatedRows, warnings };
 };

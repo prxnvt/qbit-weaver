@@ -1,9 +1,7 @@
-// Import and re-export Complex type from dedicated module
-import type { Complex as ComplexType } from './utils/complex';
-export type { Complex } from './utils/complex';
-
-// Local alias for use within this file
-type Complex = ComplexType;
+export type Complex = {
+  re: number;
+  im: number;
+};
 
 /**
  * High-performance complex array using Float64Array with interleaved storage.
@@ -119,17 +117,6 @@ export enum GateType {
 /** Extract element type from a readonly array */
 type ArrayElement<T extends readonly unknown[]> = T[number];
 
-/** Helper for exhaustive switch statements - throws if called */
-export function assertNever(x: never, message?: string): never {
-  throw new Error(message ?? `Unexpected value: ${JSON.stringify(x)}`);
-}
-
-/** Runtime type guard to validate unknown value is a valid GateType */
-export function isValidGateType(value: unknown): value is GateType {
-  return typeof value === 'string' &&
-         Object.values(GateType).includes(value as GateType);
-}
-
 // ============================================================================
 // Gate Category Arrays with Type Guards
 // ============================================================================
@@ -207,9 +194,13 @@ export const ARITHMETIC_FIXED_2X1_GATES = [
   GateType.SUB_A_MOD_R,
   GateType.MUL_A_MOD_R,
   GateType.DIV_A_MOD_R,
-  // Note: Comparison gates (A_LT_B, etc.) are NOT included here.
-  // They are single-qubit gates that flip a target bit based on
-  // comparing INPUT_A and INPUT_B registers. See ARITHMETIC_COMPARISON_GATES.
+  // Comparison gates (also 2x1)
+  GateType.A_LT_B,
+  GateType.A_LEQ_B,
+  GateType.A_GT_B,
+  GateType.A_GEQ_B,
+  GateType.A_EQ_B,
+  GateType.A_NEQ_B,
 ] as const satisfies readonly GateType[];
 
 /** Union type of fixed 2x1 arithmetic gates */
