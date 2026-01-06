@@ -23,7 +23,7 @@ export class RealExpressionParser {
     // Tokenize
     const tokenResult = tokenize(source);
     if (!tokenResult.success) {
-      return tokenResult;
+      return failure(tokenResult.error);
     }
 
     this.tokens = tokenResult.value;

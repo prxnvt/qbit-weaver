@@ -28,7 +28,7 @@ export class Lexer {
       this.start = this.current;
       const result = this.scanToken();
       if (!result.success) {
-        return result;
+        return failure(result.error);
       }
     }
 
