@@ -1,20 +1,186 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# QCVO - Quantum Circuit Visualization Operator
 
-# Run and deploy your AI Studio app
+An interactive, browser-based quantum circuit builder and simulator for learning and experimenting with quantum computing fundamentals.
 
-This contains everything you need to run your app locally.
+## Overview
 
-View your app in AI Studio: https://ai.studio/apps/drive/1D8AOMtpYPmc6TSDKF5vI9JJaOtTQSILC
+QCVO provides a visual drag-and-drop interface for constructing quantum circuits, running simulations, and observing quantum state evolution through real-time Bloch sphere visualizations. No coding required—build circuits intuitively and see quantum behavior instantly.
 
-## Run Locally
+## Features
 
-**Prerequisites:**  Node.js
+### Circuit Building
+- **Drag-and-drop gate placement** from a categorized gate library
+- **Multi-qubit support** up to 8 qubits (256 amplitude states)
+- **Dynamic wire management** - add or remove qubit lines
+- **Visual feedback** with hover highlights and control connectors
 
+### Gate Library (100+ gates)
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+| Category | Gates |
+|----------|-------|
+| **Pauli** | X, Y, Z |
+| **Hadamard** | H (superposition) |
+| **Phase** | S, T, S†, T† |
+| **Square Root** | √X, √X†, √Y, √Y† |
+| **Rotation** | RX, RY, RZ with custom angles |
+| **Preset Rotations** | RX(π/2), RX(π/4), RY(π/8), RZ(π/12), etc. |
+| **Multi-Qubit** | CX (CNOT), CZ, SWAP, CCX (Toffoli) |
+| **Control Markers** | CONTROL, ANTI_CONTROL, X/Y variants |
+| **Arithmetic** | INC, DEC, ADD, SUB, MUL, DIV, modular ops |
+| **Comparison** | A<B, A≤B, A>B, A≥B, A=B, A≠B |
+| **Special** | MEASURE, Identity, REVERSE, CUSTOM |
+
+### Simulation & Visualization
+- **State vector simulation** with full complex amplitude tracking
+- **Bloch spheres** displaying qubit states after execution
+- **Amplitude grid** showing the complete state vector
+- **Dirac notation** display (|ψ⟩ = α|0⟩ + β|1⟩)
+- **Measurement** with probabilistic state collapse
+
+### Additional Features
+- **Algorithm templates** - pre-built quantum circuits
+- **Custom gate creation** - define your own 2×2 unitary matrices
+- **Angle expression parsing** - supports "pi/4", "3*pi/8", etc.
+- **Gate information panel** - displays gate details and matrices on hover
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Framework | React 19 |
+| Language | TypeScript 5.8 |
+| Build Tool | Vite 6 |
+| Styling | Tailwind CSS 3.4 |
+| Components | shadcn/ui (Radix UI) |
+| Testing | Vitest + React Testing Library |
+| Icons | Lucide React |
+| Font | JetBrains Mono |
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- npm or yarn
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd qcvo
+
+# Install dependencies
+npm install
+```
+
+### Development
+
+```bash
+# Start development server (http://localhost:3000)
+npm run dev
+```
+
+### Production
+
+```bash
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+## Available Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server on port 3000 |
+| `npm run build` | Create optimized production build |
+| `npm run preview` | Preview production build locally |
+| `npm test` | Run all tests |
+| `npm run test:watch` | Run tests in watch mode |
+| `npm run test:coverage` | Run tests with coverage report |
+
+## Project Structure
+
+```
+qcvo/
+├── App.tsx                    # Main application component
+├── types.ts                   # TypeScript type definitions
+├── constants.ts               # Gate definitions & layout constants
+│
+├── components/
+│   ├── Gate.tsx               # Draggable/placed gate component
+│   ├── BlochSphere.tsx        # Bloch sphere visualization
+│   ├── GateLibrary.tsx        # Gate palette sidebar
+│   ├── AmplitudeGrid.tsx      # State vector display
+│   ├── InfoBox.tsx            # Hover information panel
+│   ├── AngleInput.tsx         # Angle input dialog
+│   ├── CustomGateDialog.tsx   # Custom gate creator
+│   ├── AlgorithmSidebar.tsx   # Algorithm templates
+│   └── ui/                    # shadcn UI primitives
+│
+├── utils/
+│   ├── quantum.ts             # Quantum simulation engine
+│   ├── angleParser.ts         # Angle expression parser
+│   └── complexParser.ts       # Complex number parser
+│
+└── data/
+    └── algorithms.ts          # Pre-built quantum algorithms
+```
+
+## Testing
+
+The project includes 208 tests covering the quantum simulation engine, parsers, and components.
+
+```bash
+# Run all tests
+npm test
+
+# Run with coverage
+npm run test:coverage
+```
+
+### Coverage Thresholds
+
+| Module | Lines | Functions | Branches |
+|--------|-------|-----------|----------|
+| angleParser.ts | 90% | 90% | 90% |
+| complexParser.ts | 90% | 90% | 90% |
+| quantum.ts | 35% | 65% | 20% |
+
+## Architecture
+
+- **State Management**: React hooks (useState, useCallback, useMemo)
+- **Drag-and-Drop**: HTML5 drag events with dataTransfer API
+- **Simulation**: Column-by-column gate application on state vectors
+- **Qubit Ordering**: Big-endian (row 0 = MSB)
+- **Complex Numbers**: Custom implementation with re/im properties
+
+## Usage Guide
+
+### Building a Circuit
+
+1. **Add qubits**: Click the "+" button to add qubit wires
+2. **Place gates**: Drag gates from the library onto the circuit grid
+3. **Multi-qubit gates**: Place control markers (CONTROL) and targets (CX) on different wires in the same column
+4. **Parameterized gates**: When placing RX/RY/RZ gates, enter the rotation angle
+
+### Running Simulations
+
+1. Click **Run** to execute the circuit
+2. Bloch spheres appear showing each qubit's final state
+3. The amplitude grid displays the complete state vector
+4. Hover over Bloch spheres for detailed state information
+
+### Custom Gates
+
+1. Open the custom gate dialog from the gate library
+2. Enter the 2×2 unitary matrix elements (supports complex numbers)
+3. Name your gate and add it to the library
+4. Drag and place like any other gate
+
+## License
+
+MIT
