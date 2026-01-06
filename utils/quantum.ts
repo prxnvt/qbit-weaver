@@ -3,7 +3,8 @@ import { GATE_DEFS } from '../constants';
 
 // --- Constants ---
 
-const EPSILON = 1e-10;
+/** Tolerance for floating-point comparisons in numerical operations */
+export const EPSILON = 1e-10;
 const INV_SQRT_2 = 1 / Math.sqrt(2);
 const ZERO_COMPLEX: Complex = { re: 0, im: 0 };
 const ONE_COMPLEX: Complex = { re: 1, im: 0 };

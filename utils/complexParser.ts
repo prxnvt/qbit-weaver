@@ -1,4 +1,5 @@
 import { Complex } from '../types';
+import { EPSILON } from './quantum';
 
 /**
  * Parse a complex number expression like "1+2i", "1-i", "1/sqrt(2)", "pi/4", etc.
@@ -122,24 +123,24 @@ export function formatComplex(c: Complex): string {
   const re = c.re;
   const im = c.im;
 
-  if (Math.abs(re) < 1e-10 && Math.abs(im) < 1e-10) return '0';
+  if (Math.abs(re) < EPSILON && Math.abs(im) < EPSILON) return '0';
 
   const formatNum = (n: number): string => {
-    if (Math.abs(n - Math.round(n)) < 1e-10) {
+    if (Math.abs(n - Math.round(n)) < EPSILON) {
       return String(Math.round(n));
     }
     return n.toFixed(3).replace(/\.?0+$/, '');
   };
 
-  if (Math.abs(im) < 1e-10) return formatNum(re);
-  if (Math.abs(re) < 1e-10) {
-    if (Math.abs(im - 1) < 1e-10) return 'i';
-    if (Math.abs(im + 1) < 1e-10) return '-i';
+  if (Math.abs(im) < EPSILON) return formatNum(re);
+  if (Math.abs(re) < EPSILON) {
+    if (Math.abs(im - 1) < EPSILON) return 'i';
+    if (Math.abs(im + 1) < EPSILON) return '-i';
     return `${formatNum(im)}i`;
   }
 
   const imSign = im >= 0 ? '+' : '';
-  if (Math.abs(im - 1) < 1e-10) return `${formatNum(re)}+i`;
-  if (Math.abs(im + 1) < 1e-10) return `${formatNum(re)}-i`;
+  if (Math.abs(im - 1) < EPSILON) return `${formatNum(re)}+i`;
+  if (Math.abs(im + 1) < EPSILON) return `${formatNum(re)}-i`;
   return `${formatNum(re)}${imSign}${formatNum(im)}i`;
 }
