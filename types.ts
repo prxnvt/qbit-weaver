@@ -3,6 +3,13 @@ export type Complex = {
   im: number;
 };
 
+/**
+ * High-performance complex array using Float64Array with interleaved storage.
+ * Layout: [re0, im0, re1, im1, re2, im2, ...]
+ * Access: re = arr[i*2], im = arr[i*2+1]
+ */
+export type ComplexArray = Float64Array;
+
 export enum GateType {
   // Single-qubit gates
   X = 'X',
@@ -103,8 +110,40 @@ export enum GateType {
   EMPTY = 'EMPTY'
 }
 
+// ============================================================================
+// Type Utilities
+// ============================================================================
+
+/** Extract element type from a readonly array */
+type ArrayElement<T extends readonly unknown[]> = T[number];
+
+/** Helper for exhaustive switch statements - throws if called */
+export function assertNever(x: never, message?: string): never {
+  throw new Error(message ?? `Unexpected value: ${JSON.stringify(x)}`);
+}
+
+/** Runtime type guard to validate unknown value is a valid GateType */
+export function isValidGateType(value: unknown): value is GateType {
+  return typeof value === 'string' &&
+         Object.values(GateType).includes(value as GateType);
+}
+
+// ============================================================================
+// Gate Category Arrays with Type Guards
+// ============================================================================
+
 /** Gates that are parameterized and require an angle value */
-export const PARAMETERIZED_GATES = [GateType.RX, GateType.RY, GateType.RZ] as const;
+export const PARAMETERIZED_GATES = [
+  GateType.RX, GateType.RY, GateType.RZ
+] as const satisfies readonly GateType[];
+
+/** Union type of parameterized gates */
+export type ParameterizedGate = ArrayElement<typeof PARAMETERIZED_GATES>;
+
+/** Type guard: checks if a gate is parameterized */
+export function isParameterizedGate(gate: GateType): gate is ParameterizedGate {
+  return (PARAMETERIZED_GATES as readonly GateType[]).includes(gate);
+}
 
 /** Gates that require fixed positioning (multi-qubit operations) */
 export const FIXED_POSITION_GATES = [
@@ -118,7 +157,15 @@ export const FIXED_POSITION_GATES = [
   GateType.CX,
   GateType.CZ,
   GateType.CCX,
-] as const;
+] as const satisfies readonly GateType[];
+
+/** Union type of fixed position gates */
+export type FixedPositionGate = ArrayElement<typeof FIXED_POSITION_GATES>;
+
+/** Type guard: checks if a gate requires fixed positioning */
+export function isFixedPositionGate(gate: GateType): gate is FixedPositionGate {
+  return (FIXED_POSITION_GATES as readonly GateType[]).includes(gate);
+}
 
 /** All control-type gates (for rendering connector lines) */
 export const CONTROL_GATES = [
@@ -128,7 +175,15 @@ export const CONTROL_GATES = [
   GateType.X_ANTI_CONTROL,
   GateType.Y_CONTROL,
   GateType.Y_ANTI_CONTROL,
-] as const;
+] as const satisfies readonly GateType[];
+
+/** Union type of control gates */
+export type ControlGate = ArrayElement<typeof CONTROL_GATES>;
+
+/** Type guard: checks if a gate is a control gate */
+export function isControlGate(gate: GateType): gate is ControlGate {
+  return (CONTROL_GATES as readonly GateType[]).includes(gate);
+}
 
 /** Fixed 2x1 arithmetic gates (non-resizable, span exactly 2 rows) */
 export const ARITHMETIC_FIXED_2X1_GATES = [
@@ -157,7 +212,15 @@ export const ARITHMETIC_FIXED_2X1_GATES = [
   GateType.A_GEQ_B,
   GateType.A_EQ_B,
   GateType.A_NEQ_B,
-] as const;
+] as const satisfies readonly GateType[];
+
+/** Union type of fixed 2x1 arithmetic gates */
+export type ArithmeticFixed2x1Gate = ArrayElement<typeof ARITHMETIC_FIXED_2X1_GATES>;
+
+/** Type guard: checks if a gate is a fixed 2x1 arithmetic gate */
+export function isArithmeticFixed2x1Gate(gate: GateType): gate is ArithmeticFixed2x1Gate {
+  return (ARITHMETIC_FIXED_2X1_GATES as readonly GateType[]).includes(gate);
+}
 
 /** @deprecated Use ARITHMETIC_FIXED_2X1_GATES instead */
 export const ARITHMETIC_SPANNING_GATES = ARITHMETIC_FIXED_2X1_GATES;
@@ -167,13 +230,29 @@ export const ARITHMETIC_INPUT_GATES = [
   GateType.INPUT_A,
   GateType.INPUT_B,
   GateType.INPUT_R,
-] as const;
+] as const satisfies readonly GateType[];
+
+/** Union type of arithmetic input gates */
+export type ArithmeticInputGate = ArrayElement<typeof ARITHMETIC_INPUT_GATES>;
+
+/** Type guard: checks if a gate is an arithmetic input gate */
+export function isArithmeticInputGate(gate: GateType): gate is ArithmeticInputGate {
+  return (ARITHMETIC_INPUT_GATES as readonly GateType[]).includes(gate);
+}
 
 /** All fixed 2x1 gates (inputs + arithmetic operations) */
 export const ALL_FIXED_2X1_GATES = [
   ...ARITHMETIC_FIXED_2X1_GATES,
   ...ARITHMETIC_INPUT_GATES,
-] as const;
+] as const satisfies readonly GateType[];
+
+/** Union type of all fixed 2x1 gates */
+export type AllFixed2x1Gate = ArrayElement<typeof ALL_FIXED_2X1_GATES>;
+
+/** Type guard: checks if a gate is any fixed 2x1 gate */
+export function isAllFixed2x1Gate(gate: GateType): gate is AllFixed2x1Gate {
+  return (ALL_FIXED_2X1_GATES as readonly GateType[]).includes(gate);
+}
 
 /** Arithmetic comparison gates (2x1 blocks) */
 export const ARITHMETIC_COMPARISON_GATES = [
@@ -183,7 +262,15 @@ export const ARITHMETIC_COMPARISON_GATES = [
   GateType.A_GEQ_B,
   GateType.A_EQ_B,
   GateType.A_NEQ_B,
-] as const;
+] as const satisfies readonly GateType[];
+
+/** Union type of arithmetic comparison gates */
+export type ArithmeticComparisonGate = ArrayElement<typeof ARITHMETIC_COMPARISON_GATES>;
+
+/** Type guard: checks if a gate is an arithmetic comparison gate */
+export function isArithmeticComparisonGate(gate: GateType): gate is ArithmeticComparisonGate {
+  return (ARITHMETIC_COMPARISON_GATES as readonly GateType[]).includes(gate);
+}
 
 /** Arithmetic scalar gates (single-qubit, multiply amplitudes) */
 export const ARITHMETIC_SCALAR_GATES = [
@@ -191,7 +278,15 @@ export const ARITHMETIC_SCALAR_GATES = [
   GateType.SCALE_NEG_I,
   GateType.SCALE_SQRT_I,
   GateType.SCALE_SQRT_NEG_I,
-] as const;
+] as const satisfies readonly GateType[];
+
+/** Union type of arithmetic scalar gates */
+export type ArithmeticScalarGate = ArrayElement<typeof ARITHMETIC_SCALAR_GATES>;
+
+/** Type guard: checks if a gate is an arithmetic scalar gate */
+export function isArithmeticScalarGate(gate: GateType): gate is ArithmeticScalarGate {
+  return (ARITHMETIC_SCALAR_GATES as readonly GateType[]).includes(gate);
+}
 
 /** Arithmetic gates - Dark blue (columns 1-2: inc/dec, mul/div) */
 export const ARITHMETIC_DARK_BLUE_GATES = [
@@ -203,7 +298,15 @@ export const ARITHMETIC_DARK_BLUE_GATES = [
   GateType.DIV_A,
   GateType.MUL_B,
   GateType.DIV_B,
-] as const;
+] as const satisfies readonly GateType[];
+
+/** Union type of dark blue arithmetic gates */
+export type ArithmeticDarkBlueGate = ArrayElement<typeof ARITHMETIC_DARK_BLUE_GATES>;
+
+/** Type guard: checks if a gate is a dark blue arithmetic gate */
+export function isArithmeticDarkBlueGate(gate: GateType): gate is ArithmeticDarkBlueGate {
+  return (ARITHMETIC_DARK_BLUE_GATES as readonly GateType[]).includes(gate);
+}
 
 /** Arithmetic gates - Violet (comparison gates) */
 export const ARITHMETIC_VIOLET_GATES = [
@@ -213,7 +316,15 @@ export const ARITHMETIC_VIOLET_GATES = [
   GateType.A_GEQ_B,
   GateType.A_EQ_B,
   GateType.A_NEQ_B,
-] as const;
+] as const satisfies readonly GateType[];
+
+/** Union type of violet arithmetic gates */
+export type ArithmeticVioletGate = ArrayElement<typeof ARITHMETIC_VIOLET_GATES>;
+
+/** Type guard: checks if a gate is a violet arithmetic gate */
+export function isArithmeticVioletGate(gate: GateType): gate is ArithmeticVioletGate {
+  return (ARITHMETIC_VIOLET_GATES as readonly GateType[]).includes(gate);
+}
 
 /** Arithmetic gates - Lilac (mod gates) */
 export const ARITHMETIC_LILAC_GATES = [
@@ -223,7 +334,15 @@ export const ARITHMETIC_LILAC_GATES = [
   GateType.SUB_A_MOD_R,
   GateType.MUL_A_MOD_R,
   GateType.DIV_A_MOD_R,
-] as const;
+] as const satisfies readonly GateType[];
+
+/** Union type of lilac arithmetic gates */
+export type ArithmeticLilacGate = ArrayElement<typeof ARITHMETIC_LILAC_GATES>;
+
+/** Type guard: checks if a gate is a lilac arithmetic gate */
+export function isArithmeticLilacGate(gate: GateType): gate is ArithmeticLilacGate {
+  return (ARITHMETIC_LILAC_GATES as readonly GateType[]).includes(gate);
+}
 
 /** Arithmetic gates - Pink (imaginary scalar gates) */
 export const ARITHMETIC_PINK_GATES = [
@@ -231,14 +350,30 @@ export const ARITHMETIC_PINK_GATES = [
   GateType.SCALE_NEG_I,
   GateType.SCALE_SQRT_I,
   GateType.SCALE_SQRT_NEG_I,
-] as const;
+] as const satisfies readonly GateType[];
+
+/** Union type of pink arithmetic gates */
+export type ArithmeticPinkGate = ArrayElement<typeof ARITHMETIC_PINK_GATES>;
+
+/** Type guard: checks if a gate is a pink arithmetic gate */
+export function isArithmeticPinkGate(gate: GateType): gate is ArithmeticPinkGate {
+  return (ARITHMETIC_PINK_GATES as readonly GateType[]).includes(gate);
+}
 
 /** All arithmetic gates with purple-ish colors (for backwards compat) */
 export const ARITHMETIC_PURPLE_GATES = [
   ...ARITHMETIC_VIOLET_GATES,
   ...ARITHMETIC_LILAC_GATES,
   ...ARITHMETIC_PINK_GATES,
-] as const;
+] as const satisfies readonly GateType[];
+
+/** Union type of purple arithmetic gates */
+export type ArithmeticPurpleGate = ArrayElement<typeof ARITHMETIC_PURPLE_GATES>;
+
+/** Type guard: checks if a gate is a purple arithmetic gate */
+export function isArithmeticPurpleGate(gate: GateType): gate is ArithmeticPurpleGate {
+  return (ARITHMETIC_PURPLE_GATES as readonly GateType[]).includes(gate);
+}
 
 /** Gates requiring inputA in same column */
 export const REQUIRES_INPUT_A = [
@@ -256,7 +391,15 @@ export const REQUIRES_INPUT_A = [
   GateType.SUB_A_MOD_R,
   GateType.MUL_A_MOD_R,
   GateType.DIV_A_MOD_R,
-] as const;
+] as const satisfies readonly GateType[];
+
+/** Union type of gates requiring inputA */
+export type RequiresInputAGate = ArrayElement<typeof REQUIRES_INPUT_A>;
+
+/** Type guard: checks if a gate requires inputA */
+export function isRequiresInputAGate(gate: GateType): gate is RequiresInputAGate {
+  return (REQUIRES_INPUT_A as readonly GateType[]).includes(gate);
+}
 
 /** Gates requiring inputB in same column */
 export const REQUIRES_INPUT_B = [
@@ -268,7 +411,15 @@ export const REQUIRES_INPUT_B = [
   GateType.A_GEQ_B,
   GateType.A_EQ_B,
   GateType.A_NEQ_B,
-] as const;
+] as const satisfies readonly GateType[];
+
+/** Union type of gates requiring inputB */
+export type RequiresInputBGate = ArrayElement<typeof REQUIRES_INPUT_B>;
+
+/** Type guard: checks if a gate requires inputB */
+export function isRequiresInputBGate(gate: GateType): gate is RequiresInputBGate {
+  return (REQUIRES_INPUT_B as readonly GateType[]).includes(gate);
+}
 
 /** Gates requiring inputR in same column */
 export const REQUIRES_INPUT_R = [
@@ -278,7 +429,46 @@ export const REQUIRES_INPUT_R = [
   GateType.SUB_A_MOD_R,
   GateType.MUL_A_MOD_R,
   GateType.DIV_A_MOD_R,
-] as const;
+] as const satisfies readonly GateType[];
+
+/** Union type of gates requiring inputR */
+export type RequiresInputRGate = ArrayElement<typeof REQUIRES_INPUT_R>;
+
+/** Type guard: checks if a gate requires inputR */
+export function isRequiresInputRGate(gate: GateType): gate is RequiresInputRGate {
+  return (REQUIRES_INPUT_R as readonly GateType[]).includes(gate);
+}
+
+// ============================================================================
+// Spanning Gate Arrays (previously in App.tsx)
+// ============================================================================
+
+/** All gates that span multiple rows (REVERSE + fixed 2x1 gates) */
+export const ALL_SPANNING_GATE_TYPES = [
+  GateType.REVERSE,
+  ...ALL_FIXED_2X1_GATES,
+] as const satisfies readonly GateType[];
+
+/** Union type of spanning gates */
+export type SpanningGate = ArrayElement<typeof ALL_SPANNING_GATE_TYPES>;
+
+/** Type guard: checks if a gate spans multiple rows */
+export function isSpanningGate(gate: GateType): gate is SpanningGate {
+  return (ALL_SPANNING_GATE_TYPES as readonly GateType[]).includes(gate);
+}
+
+/** Gates with resizable spans (only REVERSE currently) */
+export const RESIZABLE_SPANNING_GATES = [
+  GateType.REVERSE,
+] as const satisfies readonly GateType[];
+
+/** Union type of resizable spanning gates */
+export type ResizableSpanningGate = ArrayElement<typeof RESIZABLE_SPANNING_GATES>;
+
+/** Type guard: checks if a gate has a resizable span */
+export function isResizableSpanningGate(gate: GateType): gate is ResizableSpanningGate {
+  return (RESIZABLE_SPANNING_GATES as readonly GateType[]).includes(gate);
+}
 
 export interface GateDef {
   type: GateType;

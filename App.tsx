@@ -1,5 +1,19 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { GateType, CircuitGrid, PARAMETERIZED_GATES, GateParams, Complex, CustomGateDefinition, CONTROL_GATES, ALL_FIXED_2X1_GATES, ARITHMETIC_INPUT_GATES, ARITHMETIC_DARK_BLUE_GATES, ARITHMETIC_LILAC_GATES, ARITHMETIC_FIXED_2X1_GATES } from './types';
+import {
+  GateType,
+  CircuitGrid,
+  GateParams,
+  Complex,
+  CustomGateDefinition,
+  isParameterizedGate,
+  isControlGate,
+  isAllFixed2x1Gate,
+  isArithmeticInputGate,
+  isArithmeticDarkBlueGate,
+  isArithmeticLilacGate,
+  isSpanningGate,
+  isResizableSpanningGate,
+} from './types';
 import { INITIAL_ROWS, INITIAL_COLS, MAX_ROWS, ROW_HEIGHT, CELL_WIDTH, GRID_CELL_SIZE, GATE_DEFS } from './constants';
 import { GateLibrary } from './components/GateLibrary';
 import { Gate } from './components/Gate';
@@ -11,17 +25,6 @@ import { AlgorithmSidebar } from './components/AlgorithmSidebar';
 import { InfoBox, HoverInfo } from './components/InfoBox';
 import { runCircuitWithMeasurements, getBlochVector, validateCircuit, ValidationError } from './utils/quantum';
 import { AlgorithmTemplate } from './data/algorithms';
-
-// All gates that span multiple rows (for rendering/deletion purposes)
-const ALL_SPANNING_GATE_TYPES = [
-  GateType.REVERSE,
-  ...ALL_FIXED_2X1_GATES,
-] as const;
-
-// Gates that can be resized (only REVERSE)
-const RESIZABLE_SPANNING_GATES = [
-  GateType.REVERSE,
-] as const;
 
 interface PendingAngleInput {
   row: number;
@@ -184,10 +187,10 @@ const App: React.FC = () => {
       const totalRows = newGrid.length;
 
       // Check if this is a fixed 2x1 gate
-      const isFixed2x1 = (ALL_FIXED_2X1_GATES as readonly GateType[]).includes(type);
+      const isFixed2x1 = isAllFixed2x1Gate(type);
 
       // Check if this is a resizable spanning gate (REVERSE)
-      const isResizableSpanning = (RESIZABLE_SPANNING_GATES as readonly GateType[]).includes(type);
+      const isResizableSpanning = isResizableSpanningGate(type);
 
       if (isFixed2x1) {
         // Fixed 2x1 gates always span exactly 2 rows
@@ -329,7 +332,7 @@ const App: React.FC = () => {
       if (!anchorCell || !anchorCell.gate) return prev;
 
       // Check if this is a spanning gate
-      if (!(ALL_SPANNING_GATE_TYPES as readonly GateType[]).includes(anchorCell.gate)) return prev;
+      if (!isSpanningGate(anchorCell.gate)) return prev;
 
       const span = anchorCell.params?.reverseSpan;
       if (!span) return prev;
@@ -460,7 +463,7 @@ const App: React.FC = () => {
     }
 
     // Check if this is a parameterized gate (only prompt for new gates from sidebar)
-    if (!existingParams && (PARAMETERIZED_GATES as readonly GateType[]).includes(type)) {
+    if (!existingParams && isParameterizedGate(type)) {
       // Show angle input popup
       const rect = (e.target as HTMLElement).getBoundingClientRect();
       setPendingAngle({
@@ -593,7 +596,7 @@ const App: React.FC = () => {
     const cell = grid[row]?.[col];
 
     // If this is a spanning gate, delete the entire span
-    if (cell?.gate && (ALL_SPANNING_GATE_TYPES as readonly GateType[]).includes(cell.gate)) {
+    if (cell?.gate && isSpanningGate(cell.gate)) {
       const span = cell.params?.reverseSpan;
       if (span) {
         deleteSpanningGate(col, span.startRow);
@@ -612,7 +615,7 @@ const App: React.FC = () => {
   // Helper to get styling for spanning gates based on type
   const getSpanningGateStyle = (gateType: GateType) => {
     // Input markers - dashed borders (A is white, others colored)
-    if ((ARITHMETIC_INPUT_GATES as readonly GateType[]).includes(gateType)) {
+    if (isArithmeticInputGate(gateType)) {
       if (gateType === GateType.INPUT_A) {
         return {
           borderClass: 'border-dashed border-white',
@@ -627,7 +630,7 @@ const App: React.FC = () => {
       };
     }
     // Lilac - mod gates
-    if ((ARITHMETIC_LILAC_GATES as readonly GateType[]).includes(gateType)) {
+    if (isArithmeticLilacGate(gateType)) {
       return {
         borderClass: 'border-purple-400',
         textClass: 'text-purple-300',
@@ -635,7 +638,7 @@ const App: React.FC = () => {
       };
     }
     // Dark blue - inc/dec, mul/div
-    if ((ARITHMETIC_DARK_BLUE_GATES as readonly GateType[]).includes(gateType)) {
+    if (isArithmeticDarkBlueGate(gateType)) {
       return {
         borderClass: 'border-blue-600',
         textClass: 'text-blue-400',
@@ -659,7 +662,7 @@ const App: React.FC = () => {
     const label = gateDef?.label || gateType;
 
     // Only REVERSE gate is resizable
-    const isResizable = (RESIZABLE_SPANNING_GATES as readonly GateType[]).includes(gateType);
+    const isResizable = isResizableSpanningGate(gateType);
 
     // Error background class
     const errorBgClass = hasError ? 'bg-red-600' : 'bg-black';
@@ -747,13 +750,13 @@ const App: React.FC = () => {
 
         if (g === GateType.SWAP) swapRows.push(r);
         // All control-type gates (CONTROL, ANTI_CONTROL, X_CONTROL, etc.)
-        if ((CONTROL_GATES as readonly GateType[]).includes(g)) controlRows.push(r);
+        if (isControlGate(g)) controlRows.push(r);
         // Target gates are anything that's not a control or swap
-        if (g !== GateType.EMPTY && !(CONTROL_GATES as readonly GateType[]).includes(g) && g !== GateType.SWAP) targetRows.push(r);
+        if (g !== GateType.EMPTY && !isControlGate(g) && g !== GateType.SWAP) targetRows.push(r);
 
         // Collect arithmetic gate spans
-        if ((ALL_FIXED_2X1_GATES as readonly GateType[]).includes(g) && cell.params?.reverseSpan) {
-          if ((ARITHMETIC_INPUT_GATES as readonly GateType[]).includes(g)) {
+        if (isAllFixed2x1Gate(g) && cell.params?.reverseSpan) {
+          if (isArithmeticInputGate(g)) {
             inputSpans.push(cell.params.reverseSpan);
           } else {
             arithmeticSpans.push(cell.params.reverseSpan);
@@ -961,11 +964,11 @@ const App: React.FC = () => {
                                 style={{ height: ROW_HEIGHT, width: CELL_WIDTH }}
                               >
                                 {/* Regular gates (non-spanning) */}
-                                {cell.gate && !(ALL_SPANNING_GATE_TYPES as readonly GateType[]).includes(cell.gate) && (
+                                {cell.gate && !isSpanningGate(cell.gate) && (
                                   <Gate type={cell.gate} onHover={handleGateHover} params={cell.params} cellId={cell.id} hasError={cellHasError(rIdx, cIdx)} />
                                 )}
                                 {/* Render spanning gate anchor (REVERSE, arithmetic spanning, input markers) */}
-                                {cell.gate && (ALL_SPANNING_GATE_TYPES as readonly GateType[]).includes(cell.gate) && !cell.params?.isSpanContinuation && cell.params?.reverseSpan && (
+                                {cell.gate && isSpanningGate(cell.gate) && !cell.params?.isSpanContinuation && cell.params?.reverseSpan && (
                                   renderSpanningGate(cIdx, cell.gate, cell.params.reverseSpan, cellHasError(rIdx, cIdx))
                                 )}
                               </div>
@@ -1042,7 +1045,7 @@ const App: React.FC = () => {
                             if (!type) return;
 
                             // Check 2x1 gate row constraint
-                            const isFixed2x1 = (ALL_FIXED_2X1_GATES as readonly GateType[]).includes(type);
+                            const isFixed2x1 = isAllFixed2x1Gate(type);
                             if (isFixed2x1 && rIdx + 1 >= MAX_ROWS) {
                               return; // Can't place 2x1 gate on row 7
                             }
@@ -1064,7 +1067,7 @@ const App: React.FC = () => {
 
                             // Drop the gate after grid expansion
                             setTimeout(() => {
-                              if ((PARAMETERIZED_GATES as readonly GateType[]).includes(type) && !existingParams) {
+                              if (isParameterizedGate(type) && !existingParams) {
                                 const rect = (e.target as HTMLElement).getBoundingClientRect();
                                 setPendingAngle({
                                   row: rIdx,

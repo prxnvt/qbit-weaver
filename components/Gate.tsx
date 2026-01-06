@@ -1,5 +1,13 @@
 import React from 'react';
-import { GateType, GateParams, ARITHMETIC_DARK_BLUE_GATES, ARITHMETIC_VIOLET_GATES, ARITHMETIC_LILAC_GATES, ARITHMETIC_PINK_GATES, ARITHMETIC_INPUT_GATES } from '../types';
+import {
+  GateType,
+  GateParams,
+  isArithmeticDarkBlueGate,
+  isArithmeticVioletGate,
+  isArithmeticLilacGate,
+  isArithmeticPinkGate,
+  isArithmeticInputGate,
+} from '../types';
 import { formatAngle } from '../utils/angleParser';
 
 interface GateProps {
@@ -173,7 +181,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
   // ============================================================================
   // ARITHMETIC GATES - Dark Blue (inc/dec, mul/div)
   // ============================================================================
-  else if ((ARITHMETIC_DARK_BLUE_GATES as readonly GateType[]).includes(type)) {
+  else if (isArithmeticDarkBlueGate(type)) {
       const darkBlueBase = "bg-black border-2 border-blue-600 text-blue-400";
       specificStyles = darkBlueBase;
 
@@ -201,7 +209,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
   // ============================================================================
   // ARITHMETIC GATES - Violet (comparison gates)
   // ============================================================================
-  else if ((ARITHMETIC_VIOLET_GATES as readonly GateType[]).includes(type)) {
+  else if (isArithmeticVioletGate(type)) {
       const violetBase = "bg-black border-2 border-violet-600 text-violet-400";
       specificStyles = violetBase;
 
@@ -222,7 +230,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
   // ============================================================================
   // ARITHMETIC GATES - Lilac (mod gates)
   // ============================================================================
-  else if ((ARITHMETIC_LILAC_GATES as readonly GateType[]).includes(type)) {
+  else if (isArithmeticLilacGate(type)) {
       const lilacBase = "bg-black border-2 border-purple-400 text-purple-300";
       specificStyles = lilacBase;
 
@@ -273,7 +281,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
   // ============================================================================
   // ARITHMETIC GATES - Pink (imaginary scalar gates)
   // ============================================================================
-  else if ((ARITHMETIC_PINK_GATES as readonly GateType[]).includes(type)) {
+  else if (isArithmeticPinkGate(type)) {
       const pinkBase = "bg-black border-2 border-pink-500 text-pink-400";
       specificStyles = pinkBase;
 
@@ -290,7 +298,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
   // ============================================================================
   // ARITHMETIC INPUT MARKERS - Dashed borders
   // ============================================================================
-  else if ((ARITHMETIC_INPUT_GATES as readonly GateType[]).includes(type)) {
+  else if (isArithmeticInputGate(type)) {
       // Dashed border style for input markers
       const inputMarkerBase = "bg-black border-2 border-dashed text-gray-300";
 
