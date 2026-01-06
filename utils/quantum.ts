@@ -1322,6 +1322,7 @@ const simulateColumn = (
   };
 };
 
+/** Create initial |0...0⟩ state as ComplexArray */
 export const createInitialState = (numQubits: number): ComplexArray => {
   const size = Math.pow(2, numQubits);
   const state = createComplexArray(size);
@@ -1337,117 +1338,14 @@ export const simulateCircuit = (grid: CircuitGrid): Complex[][] => {
   const history: ComplexArray[] = [currentState];
 
   for (let col = 0; col < numCols; col++) {
-    // 1. Identify Gates and Controls in this column
-    const controls: number[] = [];
-    const antiControls: number[] = [];
-    const xControls: number[] = [];
-    const xAntiControls: number[] = [];
-    const yControls: number[] = [];
-    const yAntiControls: number[] = [];
-    const swaps: number[] = [];
-    const operations: { row: number; type: GateType; params?: GateParams }[] = [];
-
-    for (let row = 0; row < numRows; row++) {
-      const cell = grid[row][col];
-      const type = cell.gate;
-      if (!type) continue;
-
-      if (type === GateType.CONTROL) {
-        controls.push(row);
-      } else if (type === GateType.ANTI_CONTROL) {
-        antiControls.push(row);
-      } else if (type === GateType.X_CONTROL) {
-        xControls.push(row);
-      } else if (type === GateType.X_ANTI_CONTROL) {
-        xAntiControls.push(row);
-      } else if (type === GateType.Y_CONTROL) {
-        yControls.push(row);
-      } else if (type === GateType.Y_ANTI_CONTROL) {
-        yAntiControls.push(row);
-      } else if (type === GateType.SWAP) {
-        swaps.push(row);
-      } else if (type === GateType.CCX) {
-        operations.push({ row, type: GateType.CCX, params: cell.params });
-      } else if (type === GateType.MEASURE) {
-        // Measurement gates don't affect visualization, treat as identity
-        operations.push({ row, type: GateType.I, params: cell.params });
-      } else {
-        operations.push({ row, type, params: cell.params });
-      }
-    }
-
-    // 2. Pair Swaps
-    const swapPairs: [number, number][] = [];
-    for (let i = 0; i < swaps.length - 1; i += 2) {
-      swapPairs.push([swaps[i], swaps[i+1]]);
-    }
-
-    let nextState: ComplexArray = new Float64Array(currentState);
-
-    // 3. Apply basis transformations for X/Y controls
-    // X-basis: H transforms |+⟩ → |0⟩ and |-⟩ → |1⟩
-    for (const r of [...xControls, ...xAntiControls]) {
-      nextState = applyGate(nextState, GateType.H, r, 0, numRows);
-    }
-    // Y-basis: S†H transforms |+i⟩ → |0⟩ and |-i⟩ → |1⟩
-    for (const r of [...yControls, ...yAntiControls]) {
-      nextState = applySdagger(nextState, r, numRows);
-      nextState = applyGate(nextState, GateType.H, r, 0, numRows);
-    }
-
-    // 4. Calculate control masks
-    // Control mask: bits that must be 1
-    let controlMask = 0;
-    for (const r of controls) {
-      controlMask |= (1 << (numRows - 1 - r));
-    }
-    // X/Y controls: after basis change, |+⟩/|+i⟩ maps to |0⟩, so control on |+⟩ means anti-control after H
-    // Wait - H maps |+⟩ → |0⟩, so X_CONTROL (triggers on |+⟩) should be ANTI-control after H
-    // Let me reconsider:
-    // |+⟩ = (|0⟩ + |1⟩)/√2, after H: H|+⟩ = |0⟩
-    // |-⟩ = (|0⟩ - |1⟩)/√2, after H: H|-⟩ = |1⟩
-    // So X_CONTROL (activates on |+⟩) → after H, activates on |0⟩ → anti-control
-    // X_ANTI_CONTROL (activates on |-⟩) → after H, activates on |1⟩ → control
-    for (const r of xAntiControls) {
-      controlMask |= (1 << (numRows - 1 - r));
-    }
-    for (const r of yAntiControls) {
-      controlMask |= (1 << (numRows - 1 - r));
-    }
-
-    // Anti-control mask: bits that must be 0
-    let antiControlMask = 0;
-    for (const r of antiControls) {
-      antiControlMask |= (1 << (numRows - 1 - r));
-    }
-    // X_CONTROL triggers on |+⟩ which becomes |0⟩ after H → anti-control mask
-    for (const r of xControls) {
-      antiControlMask |= (1 << (numRows - 1 - r));
-    }
-    for (const r of yControls) {
-      antiControlMask |= (1 << (numRows - 1 - r));
-    }
-
-    // 5. Apply SWAPs with control masks
-    for (const [r1, r2] of swapPairs) {
-      nextState = applySwapWithAntiControl(nextState, r1, r2, controlMask, antiControlMask, numRows);
-    }
-
-    // 6. Apply gates with control masks
-    for (const op of operations) {
-      nextState = applyGateWithAntiControl(nextState, op.type, op.row, controlMask, antiControlMask, numRows, op.params);
-    }
-
-    // 7. Undo basis transformations
-    for (const r of [...xControls, ...xAntiControls]) {
-      nextState = applyGate(nextState, GateType.H, r, 0, numRows);
-    }
-    for (const r of [...yControls, ...yAntiControls]) {
-      nextState = applyGate(nextState, GateType.H, r, 0, numRows);
-      nextState = applyS(nextState, r, numRows);
-    }
-
-    currentState = nextState;
+    const result = simulateColumn(currentState, grid, col, {
+      numQubits: numRows,
+      columnIndex: col,
+      rowMapping: null,           // Use all rows
+      processAdvancedGates: false, // Skip REVERSE/arithmetic for visualization
+      warnings: null              // No warning collection
+    });
+    currentState = result.state;
     history.push(currentState);
   }
 
@@ -1730,18 +1628,21 @@ const applyGateWithAntiControl = (
 
 // --- Visualization Logic ---
 
-export const getBlochVector = (state: ComplexArray, targetQubit: number, totalQubits: number): [number, number, number] => {
+export const getBlochVector = (state: Complex[] | ComplexArray, targetQubit: number, totalQubits: number): [number, number, number] => {
+  // Convert Complex[] to ComplexArray if needed
+  const stateArray: ComplexArray = Array.isArray(state) ? fromComplexObjectArray(state) : state;
+
   let expX = 0;
   let expY = 0;
   let expZ = 0;
 
   const N = totalQubits;
   const bitK = N - 1 - targetQubit;
-  const len = complexLength(state);
+  const len = complexLength(stateArray);
 
   for (let i = 0; i < len; i++) {
-    const ampRe = getRe(state, i);
-    const ampIm = getIm(state, i);
+    const ampRe = getRe(stateArray, i);
+    const ampIm = getIm(stateArray, i);
     const absSq = ampRe * ampRe + ampIm * ampIm;
 
     // Z expectation
@@ -1758,8 +1659,8 @@ export const getBlochVector = (state: ComplexArray, targetQubit: number, totalQu
 
         const c0Re = ampRe;
         const c0Im = ampIm;
-        const c1Re = getRe(state, idx1);
-        const c1Im = getIm(state, idx1);
+        const c1Re = getRe(stateArray, idx1);
+        const c1Im = getIm(stateArray, idx1);
 
         const termRe = c0Re * c1Re + c0Im * c1Im;
 
@@ -1782,19 +1683,22 @@ export const getBlochVector = (state: ComplexArray, targetQubit: number, totalQu
  * If r <= |a|^2, collapse to 0; otherwise collapse to 1.
  */
 export const measureQubit = (
-  state: ComplexArray,
+  state: Complex[] | ComplexArray,
   qubit: number,
   numQubits: number
 ): { result: 0 | 1; probability: number; collapsedState: ComplexArray } => {
+  // Convert Complex[] to ComplexArray if needed
+  const stateArray: ComplexArray = Array.isArray(state) ? fromComplexObjectArray(state) : state;
+
   const bit = numQubits - 1 - qubit;
-  const len = complexLength(state);
+  const len = complexLength(stateArray);
 
   // Calculate probability of measuring 0
   let prob0 = 0;
   for (let i = 0; i < len; i++) {
     if (((i >> bit) & 1) === 0) {
-      const re = getRe(state, i);
-      const im = getIm(state, i);
+      const re = getRe(stateArray, i);
+      const im = getIm(stateArray, i);
       prob0 += re * re + im * im;
     }
   }
@@ -1812,8 +1716,8 @@ export const measureQubit = (
     const bitVal = (i >> bit) & 1;
     if (bitVal === result) {
       // Normalize this amplitude
-      const re = getRe(state, i) / normFactor;
-      const im = getIm(state, i) / normFactor;
+      const re = getRe(stateArray, i) / normFactor;
+      const im = getIm(stateArray, i) / normFactor;
       setComplexValues(collapsedState, i, re, im);
     }
     // Other amplitudes remain 0 (already initialized)
@@ -1864,295 +1768,21 @@ export const runCircuitWithMeasurements = (
   const measurements: { qubit: number; result: 0 | 1; probability: number }[] = [];
 
   for (let col = 0; col < numCols; col++) {
-    const controls: number[] = [];
-    const antiControls: number[] = [];
-    const xControls: number[] = [];
-    const xAntiControls: number[] = [];
-    const yControls: number[] = [];
-    const yAntiControls: number[] = [];
-    const swaps: number[] = [];
-    const operations: { row: number; type: GateType; params?: GateParams }[] = [];
-    const measureRows: number[] = [];
-    const reverseGates: { startRow: number; endRow: number }[] = [];
-
-    // Arithmetic gate collections (include originalRow for warning messages)
-    const arithmeticOps: { startRow: number; endRow: number; gateType: GateType; originalRow: number }[] = [];
-    const comparisonOps: { row: number; gateType: GateType; originalRow: number }[] = [];
-    const scalarOps: { row: number; gateType: GateType }[] = [];
-    let inputASpan: { startRow: number; endRow: number } | null = null;
-    let inputBSpan: { startRow: number; endRow: number } | null = null;
-    let inputRSpan: { startRow: number; endRow: number } | null = null;
-
-    for (const originalRow of populatedRows) {
-      const cell = grid[originalRow][col];
-      const type = cell.gate;
-      if (!type) continue;
-
-      const filteredRow = rowToFiltered.get(originalRow)!;
-
-      if (type === GateType.CONTROL) {
-        controls.push(filteredRow);
-      } else if (type === GateType.ANTI_CONTROL) {
-        antiControls.push(filteredRow);
-      } else if (type === GateType.X_CONTROL) {
-        xControls.push(filteredRow);
-      } else if (type === GateType.X_ANTI_CONTROL) {
-        xAntiControls.push(filteredRow);
-      } else if (type === GateType.Y_CONTROL) {
-        yControls.push(filteredRow);
-      } else if (type === GateType.Y_ANTI_CONTROL) {
-        yAntiControls.push(filteredRow);
-      } else if (type === GateType.SWAP) {
-        swaps.push(filteredRow);
-      } else if (type === GateType.MEASURE) {
-        measureRows.push(filteredRow);
-      } else if (type === GateType.REVERSE && !cell.params?.isSpanContinuation) {
-        // Only process anchor cells for REVERSE gates
-        const span = cell.params?.reverseSpan;
-        if (span) {
-          // Map the span rows to filtered indices
-          const filteredStart = rowToFiltered.get(span.startRow);
-          const filteredEnd = rowToFiltered.get(span.endRow);
-          if (filteredStart !== undefined && filteredEnd !== undefined) {
-            reverseGates.push({ startRow: filteredStart, endRow: filteredEnd });
-          }
-        }
-      }
-      // Arithmetic input markers
-      else if (type === GateType.INPUT_A && !cell.params?.isSpanContinuation) {
-        const span = cell.params?.reverseSpan;
-        if (span) {
-          const filteredStart = rowToFiltered.get(span.startRow);
-          const filteredEnd = rowToFiltered.get(span.endRow);
-          if (filteredStart !== undefined && filteredEnd !== undefined) {
-            inputASpan = { startRow: filteredStart, endRow: filteredEnd };
-          }
-        }
-      } else if (type === GateType.INPUT_B && !cell.params?.isSpanContinuation) {
-        const span = cell.params?.reverseSpan;
-        if (span) {
-          const filteredStart = rowToFiltered.get(span.startRow);
-          const filteredEnd = rowToFiltered.get(span.endRow);
-          if (filteredStart !== undefined && filteredEnd !== undefined) {
-            inputBSpan = { startRow: filteredStart, endRow: filteredEnd };
-          }
-        }
-      } else if (type === GateType.INPUT_R && !cell.params?.isSpanContinuation) {
-        const span = cell.params?.reverseSpan;
-        if (span) {
-          const filteredStart = rowToFiltered.get(span.startRow);
-          const filteredEnd = rowToFiltered.get(span.endRow);
-          if (filteredStart !== undefined && filteredEnd !== undefined) {
-            inputRSpan = { startRow: filteredStart, endRow: filteredEnd };
-          }
-        }
-      }
-      // Arithmetic spanning gates
-      else if (isArithmeticFixed2x1Gate(type) && !cell.params?.isSpanContinuation) {
-        const span = cell.params?.reverseSpan;
-        if (span) {
-          const filteredStart = rowToFiltered.get(span.startRow);
-          const filteredEnd = rowToFiltered.get(span.endRow);
-          if (filteredStart !== undefined && filteredEnd !== undefined) {
-            arithmeticOps.push({ startRow: filteredStart, endRow: filteredEnd, gateType: type, originalRow });
-          }
-        }
-      }
-      // Comparison gates (single-qubit)
-      else if (isArithmeticComparisonGate(type)) {
-        comparisonOps.push({ row: filteredRow, gateType: type, originalRow });
-      }
-      // Scalar gates (single-qubit)
-      else if (isArithmeticScalarGate(type)) {
-        scalarOps.push({ row: filteredRow, gateType: type });
-      }
-      // Skip input marker and arithmetic continuation cells
-      else if (!isArithmeticInputGate(type) &&
-               !isArithmeticFixed2x1Gate(type) &&
-               type !== GateType.REVERSE) {
-        operations.push({ row: filteredRow, type, params: cell.params });
-      }
-    }
-
-    // Apply basis transformations for X/Y controls
-    // X-basis: apply H to transform |+⟩/|-⟩ to |0⟩/|1⟩
-    for (const r of [...xControls, ...xAntiControls]) {
-      currentState = applyGate(currentState, GateType.H, r, 0, numFilteredRows);
-    }
-    // Y-basis: apply S†H to transform |+i⟩/|-i⟩ to |0⟩/|1⟩
-    for (const r of [...yControls, ...yAntiControls]) {
-      // S† = [[1, 0], [0, -i]]
-      currentState = applySdagger(currentState, r, numFilteredRows);
-      currentState = applyGate(currentState, GateType.H, r, 0, numFilteredRows);
-    }
-
-    // Calculate control mask (bits that must be 1)
-    // After basis transformation:
-    // - H maps |+⟩ → |0⟩ and |-⟩ → |1⟩
-    // - S†H maps |+i⟩ → |0⟩ and |-i⟩ → |1⟩
-    // So X_CONTROL (triggers on |+⟩) becomes anti-control (triggers on |0⟩) after H
-    // And X_ANTI_CONTROL (triggers on |-⟩) becomes control (triggers on |1⟩) after H
-    let controlMask = 0;
-    for (const r of controls) {
-      controlMask |= (1 << (numFilteredRows - 1 - r));
-    }
-    // X/Y anti-controls trigger on |-⟩/|-i⟩ which become |1⟩ after basis change
-    for (const r of xAntiControls) {
-      controlMask |= (1 << (numFilteredRows - 1 - r));
-    }
-    for (const r of yAntiControls) {
-      controlMask |= (1 << (numFilteredRows - 1 - r));
-    }
-
-    // Calculate anti-control mask (bits that must be 0)
-    let antiControlMask = 0;
-    for (const r of antiControls) {
-      antiControlMask |= (1 << (numFilteredRows - 1 - r));
-    }
-    // X/Y controls trigger on |+⟩/|+i⟩ which become |0⟩ after basis change
-    for (const r of xControls) {
-      antiControlMask |= (1 << (numFilteredRows - 1 - r));
-    }
-    for (const r of yControls) {
-      antiControlMask |= (1 << (numFilteredRows - 1 - r));
-    }
-
-    // Apply SWAPs
-    const swapPairs: [number, number][] = [];
-    for (let i = 0; i < swaps.length - 1; i += 2) {
-      swapPairs.push([swaps[i], swaps[i + 1]]);
-    }
-    for (const [r1, r2] of swapPairs) {
-      currentState = applySwapWithAntiControl(currentState, r1, r2, controlMask, antiControlMask, numFilteredRows);
-    }
-
-    // Apply gates with both control and anti-control masks
-    for (const op of operations) {
-      currentState = applyGateWithAntiControl(currentState, op.type, op.row, controlMask, antiControlMask, numFilteredRows, op.params);
-    }
-
-    // Apply REVERSE gates (bit-reversal permutation)
-    for (const rev of reverseGates) {
-      currentState = applyBitReversePermutation(currentState, rev.startRow, rev.endRow, numFilteredRows);
-    }
-
-    // Apply arithmetic spanning gates (permutations)
-    for (const arithOp of arithmeticOps) {
-      // Check for missing required inputs and generate warnings
-      const requiresA = isRequiresInputAGate(arithOp.gateType);
-      const requiresB = isRequiresInputBGate(arithOp.gateType);
-      const requiresR = isRequiresInputRGate(arithOp.gateType);
-
-      if (requiresA && !inputASpan) {
-        warnings.push({
-          column: col,
-          row: arithOp.originalRow,
-          gateType: arithOp.gateType,
-          message: `${arithOp.gateType} gate requires INPUT_A marker in the same column`,
-          category: 'missing_input'
-        });
-      }
-      if (requiresB && !inputBSpan) {
-        warnings.push({
-          column: col,
-          row: arithOp.originalRow,
-          gateType: arithOp.gateType,
-          message: `${arithOp.gateType} gate requires INPUT_B marker in the same column`,
-          category: 'missing_input'
-        });
-      }
-      if (requiresR && !inputRSpan) {
-        warnings.push({
-          column: col,
-          row: arithOp.originalRow,
-          gateType: arithOp.gateType,
-          message: `${arithOp.gateType} gate requires INPUT_R marker in the same column`,
-          category: 'missing_input'
-        });
-      }
-
-      // Apply the gate (it will act as identity if inputs are missing)
-      currentState = applyArithmeticPermutationDynamic(
-        currentState,
-        arithOp.gateType,
-        arithOp.startRow,
-        arithOp.endRow,
-        inputASpan,
-        inputBSpan,
-        inputRSpan,
-        controlMask,
-        antiControlMask,
-        numFilteredRows
-      );
-    }
-
-    // Apply comparison gates (single-qubit conditional flips)
-    for (const compOp of comparisonOps) {
-      // Comparison gates require both INPUT_A and INPUT_B
-      if (!inputASpan || !inputBSpan) {
-        if (!inputASpan) {
-          warnings.push({
-            column: col,
-            row: compOp.originalRow,
-            gateType: compOp.gateType,
-            message: `${compOp.gateType} gate requires INPUT_A marker in the same column`,
-            category: 'missing_input'
-          });
-        }
-        if (!inputBSpan) {
-          warnings.push({
-            column: col,
-            row: compOp.originalRow,
-            gateType: compOp.gateType,
-            message: `${compOp.gateType} gate requires INPUT_B marker in the same column`,
-            category: 'missing_input'
-          });
-        }
-        // Skip applying the gate since inputs are missing
-        continue;
-      }
-
-      currentState = applyComparisonGate(
-        currentState,
-        compOp.gateType,
-        compOp.row,
-        inputASpan.startRow,
-        inputASpan.endRow,
-        inputBSpan.startRow,
-        inputBSpan.endRow,
-        controlMask,
-        antiControlMask,
-        numFilteredRows
-      );
-    }
-
-    // Apply scalar gates (amplitude multiplications)
-    for (const scalarOp of scalarOps) {
-      currentState = applyScalarGate(
-        currentState,
-        scalarOp.gateType,
-        scalarOp.row,
-        controlMask,
-        antiControlMask,
-        numFilteredRows
-      );
-    }
-
-    // Undo basis transformations for X/Y controls
-    for (const r of [...xControls, ...xAntiControls]) {
-      currentState = applyGate(currentState, GateType.H, r, 0, numFilteredRows);
-    }
-    for (const r of [...yControls, ...yAntiControls]) {
-      currentState = applyGate(currentState, GateType.H, r, 0, numFilteredRows);
-      currentState = applyS(currentState, r, numFilteredRows);
-    }
+    const result = simulateColumn(currentState, grid, col, {
+      numQubits: numFilteredRows,
+      columnIndex: col,
+      rowMapping: rowToFiltered,
+      processAdvancedGates: true,
+      warnings
+    });
+    currentState = result.state;
 
     // Perform measurements (collapse the state)
-    for (const row of measureRows) {
-      const { result, probability, collapsedState } = measureQubit(currentState, row, numFilteredRows);
-      // Map back to original row index for the measurement result
-      const originalRow = populatedRows[row];
-      measurements.push({ qubit: originalRow, result, probability });
+    for (let i = 0; i < result.measureRows.length; i++) {
+      const { result: mResult, probability, collapsedState } = measureQubit(
+        currentState, result.measureRows[i], numFilteredRows
+      );
+      measurements.push({ qubit: result.measureOriginalRows[i], result: mResult, probability });
       currentState = collapsedState;
     }
   }
