@@ -23,11 +23,11 @@ const formatComplex = (c: Complex): string => {
 const formatMatrix = (matrix: Complex[][]): React.ReactNode => {
   if (!matrix || matrix.length === 0) return null;
   return (
-    <div className="font-mono text-[10px] leading-tight">
+    <div className="font-mono text-xs leading-relaxed">
       {matrix.map((row, i) => (
-        <div key={i} className="flex gap-2">
+        <div key={i} className="flex gap-3 py-0.5">
           {row.map((cell, j) => (
-            <span key={j} className="w-12 text-right">{formatComplex(cell)}</span>
+            <span key={j} className="w-14 text-right">{formatComplex(cell)}</span>
           ))}
         </div>
       ))}
@@ -41,13 +41,13 @@ const GateTooltipContent: React.FC<{ type: GateType }> = ({ type }) => {
   if (!def) return null;
 
   return (
-    <div className="max-w-xs">
-      <div className="font-bold text-sm mb-1">{def.fullName}</div>
+    <div className="max-w-sm py-1">
+      <div className="font-bold text-base mb-2">{def.fullName}</div>
       {def.description && (
-        <div className="text-xs text-white/80 mb-2">{def.description}</div>
+        <div className="text-sm text-white/80 mb-3 leading-relaxed">{def.description}</div>
       )}
       {def.matrix && def.matrix.length > 0 && (
-        <div className="border-t border-white/20 pt-2">
+        <div className="border-t border-white/20 pt-3">
           {formatMatrix(def.matrix)}
         </div>
       )}
