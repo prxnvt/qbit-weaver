@@ -1,12 +1,59 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { GateType, CustomGateDefinition, GateParams } from '../types';
+import { GateType, CustomGateDefinition, GateParams, Complex } from '../types';
 import { GATE_DEFS } from '../constants';
 import { Gate } from './Gate';
 import { Input } from './ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
 // Fixed height for the Gate Library bottom pane (in pixels)
 // 4 gate rows × 44px + header ~28px + padding 48px = ~256px + 34px adjustment
 const GATE_LIBRARY_HEIGHT = 290;
+
+// Format a complex number for display
+const formatComplex = (c: Complex): string => {
+  const re = c.re;
+  const im = c.im;
+  if (Math.abs(im) < 1e-10) return re.toFixed(2).replace(/\.00$/, '');
+  if (Math.abs(re) < 1e-10) return im === 1 ? 'i' : im === -1 ? '-i' : `${im.toFixed(2)}i`;
+  const sign = im >= 0 ? '+' : '';
+  return `${re.toFixed(2)}${sign}${im.toFixed(2)}i`;
+};
+
+// Format matrix for tooltip display
+const formatMatrix = (matrix: Complex[][]): React.ReactNode => {
+  if (!matrix || matrix.length === 0) return null;
+  return (
+    <div className="font-mono text-[10px] leading-tight">
+      {matrix.map((row, i) => (
+        <div key={i} className="flex gap-2">
+          {row.map((cell, j) => (
+            <span key={j} className="w-12 text-right">{formatComplex(cell)}</span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Tooltip content for a gate
+const GateTooltipContent: React.FC<{ type: GateType }> = ({ type }) => {
+  const def = GATE_DEFS[type];
+  if (!def) return null;
+
+  return (
+    <div className="max-w-xs">
+      <div className="font-bold text-sm mb-1">{def.fullName}</div>
+      {def.description && (
+        <div className="text-xs text-white/80 mb-2">{def.description}</div>
+      )}
+      {def.matrix && def.matrix.length > 0 && (
+        <div className="border-t border-white/20 pt-2">
+          {formatMatrix(def.matrix)}
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface GateLibraryProps {
   onHoverGate: (type: GateType | null, params?: GateParams) => void;
@@ -119,15 +166,21 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
       {columns.map((column, colIdx) => (
         <div key={colIdx} className="flex flex-col gap-1">
           {column.map((type) => (
-            <div
-              key={type}
-              className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-white/10 transition-colors"
-            >
-              <Gate type={type} onHover={onHoverGate} isGateLibrary />
-              <span className="text-[10px] font-bold text-white uppercase truncate">
-                {GATE_DEFS[type]?.fullName || type}
-              </span>
-            </div>
+            <Tooltip key={type} delayDuration={300}>
+              <TooltipTrigger asChild>
+                <div
+                  className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-white/10 transition-colors"
+                >
+                  <Gate type={type} onHover={onHoverGate} isGateLibrary />
+                  <span className="text-xs font-bold text-white uppercase truncate">
+                    {GATE_DEFS[type]?.fullName || type}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="bg-zinc-900 border-zinc-700 text-white">
+                <GateTooltipContent type={type} />
+              </TooltipContent>
+            </Tooltip>
           ))}
         </div>
       ))}
@@ -145,7 +198,7 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
           <div className="w-10 h-10 border-2 border-dashed border-purple-500 flex items-center justify-center text-purple-400 font-bold text-xs">
             +
           </div>
-          <span className="text-[10px] font-bold text-purple-400 uppercase">
+          <span className="text-xs font-bold text-purple-400 uppercase">
             Custom
           </span>
         </div>
@@ -162,7 +215,7 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
               params={{ customLabel: customGate.label, customMatrix: customGate.matrix }}
               isGateLibrary
             />
-            <span className="text-[10px] font-bold text-purple-400 uppercase truncate">
+            <span className="text-xs font-bold text-purple-400 uppercase truncate">
               {customGate.label}
             </span>
           </div>
@@ -197,15 +250,21 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
         {columns.map((column, colIdx) => (
           <div key={colIdx} className="flex flex-col gap-1">
             {column.map((type) => (
-              <div
-                key={type}
-                className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-white/10 transition-colors"
-              >
-                <Gate type={type} onHover={onHoverGate} isGateLibrary />
-                <span className="text-[10px] font-bold text-white uppercase truncate">
-                  {GATE_DEFS[type]?.fullName || type}
-                </span>
-              </div>
+              <Tooltip key={type} delayDuration={300}>
+                <TooltipTrigger asChild>
+                  <div
+                    className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-white/10 transition-colors"
+                  >
+                    <Gate type={type} onHover={onHoverGate} isGateLibrary />
+                    <span className="text-xs font-bold text-white uppercase truncate">
+                      {GATE_DEFS[type]?.fullName || type}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="bg-zinc-900 border-zinc-700 text-white">
+                  <GateTooltipContent type={type} />
+                </TooltipContent>
+              </Tooltip>
             ))}
           </div>
         ))}
@@ -239,7 +298,16 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
         </span>
         <div className="flex gap-1">
           {recentGates.map((type) => (
-            <Gate key={type} type={type} onHover={onHoverGate} isGateLibrary />
+            <Tooltip key={type} delayDuration={300}>
+              <TooltipTrigger asChild>
+                <div>
+                  <Gate type={type} onHover={onHoverGate} isGateLibrary />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="bg-zinc-900 border-zinc-700 text-white">
+                <GateTooltipContent type={type} />
+              </TooltipContent>
+            </Tooltip>
           ))}
         </div>
       </div>
@@ -247,50 +315,48 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
   };
 
   return (
-    <div
-      className="border-t-2 border-white bg-black px-4 pt-3 pb-6 z-10"
-      style={{ height: GATE_LIBRARY_HEIGHT, minHeight: GATE_LIBRARY_HEIGHT, flexShrink: 0 }}
-    >
-      {/* Recent gates section (above search) */}
-      {renderRecentGates()}
+    <TooltipProvider>
+      <div
+        className="border-t-2 border-white bg-black px-4 pt-3 pb-6 z-10"
+        style={{ height: GATE_LIBRARY_HEIGHT, minHeight: GATE_LIBRARY_HEIGHT, flexShrink: 0 }}
+      >
+        {/* Recent gates section (above search) */}
+        {renderRecentGates()}
 
-      {/* Search input */}
-      <div className="flex items-center gap-2 mb-3">
-        <div className="relative flex-grow max-w-xs">
-          <Input
-            ref={searchInputRef}
-            type="text"
-            placeholder="Search gates..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-7 bg-black border-white text-white placeholder:text-white/50 text-xs pr-7"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-xs font-bold"
-              aria-label="Clear search"
-            >
-              X
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Header with label and sub-library tabs (hidden when searching) */}
-      {!isSearching && (
+        {/* Header row: Title and Search */}
         <div className="flex items-center gap-4 mb-3">
-          <span className="text-sm font-bold text-white uppercase shrink-0">
+          <span className="text-lg font-bold text-white uppercase shrink-0 tracking-tight">
             Gate Library
           </span>
+          <div className="relative max-w-xs">
+            <Input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search gates..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-7 bg-black border-white text-white placeholder:text-white/50 text-xs pr-7"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-xs font-bold"
+                aria-label="Clear search"
+              >
+                X
+              </button>
+            )}
+          </div>
+        </div>
 
-          {/* Sub-library toggle buttons */}
-          <div className="flex gap-1 shrink-0">
+        {/* Sub-library toggle buttons (hidden when searching) */}
+        {!isSearching && (
+          <div className="flex gap-1 mb-3">
             {SUB_LIBRARIES.map((lib) => (
               <button
                 key={lib}
                 onClick={() => setActiveSubLibrary(lib)}
-                className={`px-2 py-1 text-xs font-bold uppercase transition-colors ${
+                className={`px-2 py-1 text-base font-bold uppercase transition-colors ${
                   activeSubLibrary === lib
                     ? 'bg-white text-black'
                     : 'text-white hover:bg-white/20'
@@ -300,13 +366,13 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
               </button>
             ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Sub-library content or search results with horizontal scroll */}
-      <div className="overflow-x-auto">
-        {isSearching ? renderSearchResults() : renderSubLibraryContent()}
+        {/* Sub-library content or search results with horizontal scroll */}
+        <div className="overflow-x-auto">
+          {isSearching ? renderSearchResults() : renderSubLibraryContent()}
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 };
