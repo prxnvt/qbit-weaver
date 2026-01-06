@@ -237,6 +237,113 @@ export const writeRegisterValue = (
 };
 
 /**
+ * Compute the result of an arithmetic operation on a register value.
+ * This is the shared logic for all arithmetic permutation gates.
+ *
+ * @param gateType The type of arithmetic gate to apply
+ * @param effectValue The current value in the effect register
+ * @param inputAValue Value from input register A (or null if not present)
+ * @param inputBValue Value from input register B (or null if not present)
+ * @param inputRValue Value from input register R/modulus (or null if not present)
+ * @param mod2n The modulus 2^n for the effect register size
+ * @returns The new value after applying the arithmetic operation
+ */
+const computeArithmeticResult = (
+  gateType: GateType,
+  effectValue: number,
+  inputAValue: number | null,
+  inputBValue: number | null,
+  inputRValue: number | null,
+  mod2n: number
+): number => {
+  switch (gateType) {
+    // Column 1: Increment/Decrement
+    case GateType.INC:
+      return properMod(effectValue + 1, mod2n);
+    case GateType.DEC:
+      return properMod(effectValue - 1, mod2n);
+    case GateType.ADD_A:
+      if (inputAValue !== null) {
+        return properMod(effectValue + inputAValue, mod2n);
+      }
+      break;
+    case GateType.SUB_A:
+      if (inputAValue !== null) {
+        return properMod(effectValue - inputAValue, mod2n);
+      }
+      break;
+
+    // Column 2: Multiply/Divide (requires odd multiplier)
+    case GateType.MUL_A:
+      if (inputAValue !== null && isOdd(inputAValue)) {
+        return properMod(effectValue * inputAValue, mod2n);
+      }
+      break;
+    case GateType.DIV_A:
+      if (inputAValue !== null && isOdd(inputAValue)) {
+        const inv = modularInverse(inputAValue, mod2n);
+        if (inv !== null) {
+          return properMod(effectValue * inv, mod2n);
+        }
+      }
+      break;
+    case GateType.MUL_B:
+      if (inputBValue !== null && isOdd(inputBValue)) {
+        return properMod(effectValue * inputBValue, mod2n);
+      }
+      break;
+    case GateType.DIV_B:
+      if (inputBValue !== null && isOdd(inputBValue)) {
+        const inv = modularInverse(inputBValue, mod2n);
+        if (inv !== null) {
+          return properMod(effectValue * inv, mod2n);
+        }
+      }
+      break;
+
+    // Column 5: Modular Inc/Dec with inputR
+    case GateType.INC_MOD_R:
+      if (inputRValue !== null && inputRValue > 0 && effectValue < inputRValue) {
+        return properMod(effectValue + 1, inputRValue);
+      }
+      break;
+    case GateType.DEC_MOD_R:
+      if (inputRValue !== null && inputRValue > 0 && effectValue < inputRValue) {
+        return properMod(effectValue - 1, inputRValue);
+      }
+      break;
+
+    // Column 6: Modular Arithmetic on A with inputR
+    case GateType.ADD_A_MOD_R:
+      if (inputAValue !== null && inputRValue !== null && inputRValue > 0 && effectValue < inputRValue && inputAValue < inputRValue) {
+        return properMod(effectValue + inputAValue, inputRValue);
+      }
+      break;
+    case GateType.SUB_A_MOD_R:
+      if (inputAValue !== null && inputRValue !== null && inputRValue > 0 && effectValue < inputRValue && inputAValue < inputRValue) {
+        return properMod(effectValue - inputAValue, inputRValue);
+      }
+      break;
+    case GateType.MUL_A_MOD_R:
+      if (inputAValue !== null && inputRValue !== null && inputRValue > 0 && effectValue < inputRValue && areCoprime(inputAValue, inputRValue)) {
+        return properMod(effectValue * inputAValue, inputRValue);
+      }
+      break;
+    case GateType.DIV_A_MOD_R:
+      if (inputAValue !== null && inputRValue !== null && inputRValue > 0 && effectValue < inputRValue && areCoprime(inputAValue, inputRValue)) {
+        const inv = modularInverse(inputAValue, inputRValue);
+        if (inv !== null) {
+          return properMod(effectValue * inv, inputRValue);
+        }
+      }
+      break;
+  }
+
+  // Default: return unchanged value (identity operation)
+  return effectValue;
+};
+
+/**
  * Apply an arithmetic permutation gate (like +1, -1, +A, ×A, etc.)
  * These gates permute basis states based on arithmetic operations on register values.
  */
@@ -268,93 +375,8 @@ const applyArithmeticPermutation = (
     // Read current effect register value
     const effectValue = readRegisterValue(i, effectStart, effectEnd, numQubits);
 
-    // Compute new value based on gate type
-    let newValue = effectValue;
-
-    switch (gateType) {
-      // Column 1: Increment/Decrement
-      case GateType.INC:
-        newValue = properMod(effectValue + 1, mod2n);
-        break;
-      case GateType.DEC:
-        newValue = properMod(effectValue - 1, mod2n);
-        break;
-      case GateType.ADD_A:
-        if (inputAValue !== null) {
-          newValue = properMod(effectValue + inputAValue, mod2n);
-        }
-        break;
-      case GateType.SUB_A:
-        if (inputAValue !== null) {
-          newValue = properMod(effectValue - inputAValue, mod2n);
-        }
-        break;
-
-      // Column 2: Multiply/Divide (requires odd multiplier)
-      case GateType.MUL_A:
-        if (inputAValue !== null && isOdd(inputAValue)) {
-          newValue = properMod(effectValue * inputAValue, mod2n);
-        }
-        break;
-      case GateType.DIV_A:
-        if (inputAValue !== null && isOdd(inputAValue)) {
-          const inv = modularInverse(inputAValue, mod2n);
-          if (inv !== null) {
-            newValue = properMod(effectValue * inv, mod2n);
-          }
-        }
-        break;
-      case GateType.MUL_B:
-        if (inputBValue !== null && isOdd(inputBValue)) {
-          newValue = properMod(effectValue * inputBValue, mod2n);
-        }
-        break;
-      case GateType.DIV_B:
-        if (inputBValue !== null && isOdd(inputBValue)) {
-          const inv = modularInverse(inputBValue, mod2n);
-          if (inv !== null) {
-            newValue = properMod(effectValue * inv, mod2n);
-          }
-        }
-        break;
-
-      // Column 5: Modular Inc/Dec with inputR
-      case GateType.INC_MOD_R:
-        if (inputRValue !== null && effectValue < inputRValue) {
-          newValue = properMod(effectValue + 1, inputRValue);
-        }
-        break;
-      case GateType.DEC_MOD_R:
-        if (inputRValue !== null && effectValue < inputRValue) {
-          newValue = properMod(effectValue - 1, inputRValue);
-        }
-        break;
-
-      // Column 6: Modular Arithmetic on A with inputR
-      case GateType.ADD_A_MOD_R:
-        if (inputAValue !== null && inputRValue !== null && effectValue < inputRValue && inputAValue < inputRValue) {
-          newValue = properMod(effectValue + inputAValue, inputRValue);
-        }
-        break;
-      case GateType.SUB_A_MOD_R:
-        if (inputAValue !== null && inputRValue !== null && effectValue < inputRValue && inputAValue < inputRValue) {
-          newValue = properMod(effectValue - inputAValue, inputRValue);
-        }
-        break;
-      case GateType.MUL_A_MOD_R:
-        if (inputAValue !== null && inputRValue !== null && effectValue < inputRValue && areCoprime(inputAValue, inputRValue)) {
-          newValue = properMod(effectValue * inputAValue, inputRValue);
-        }
-        break;
-      case GateType.DIV_A_MOD_R:
-        if (inputAValue !== null && inputRValue !== null && effectValue < inputRValue && areCoprime(inputAValue, inputRValue)) {
-          const inv = modularInverse(inputAValue, inputRValue);
-          if (inv !== null) {
-            newValue = properMod(effectValue * inv, inputRValue);
-          }
-        }
-        break;
-    }
+    // Compute new value using shared helper
+    const newValue = computeArithmeticResult(gateType, effectValue, inputAValue, inputBValue, inputRValue, mod2n);
 
     // Write the new value to get the target state
     const targetIdx = writeRegisterValue(i, newValue, effectStart, effectEnd, numQubits);
@@ -407,93 +429,8 @@ const applyArithmeticPermutationDynamic = (
     // Read current effect register value
     const effectValue = readRegisterValue(i, effectStart, effectEnd, numQubits);
 
-    // Compute new value based on gate type
-    let newValue = effectValue;
-
-    switch (gateType) {
-      // Column 1: Increment/Decrement
-      case GateType.INC:
-        newValue = properMod(effectValue + 1, mod2n);
-        break;
-      case GateType.DEC:
-        newValue = properMod(effectValue - 1, mod2n);
-        break;
-      case GateType.ADD_A:
-        if (inputAValue !== null) {
-          newValue = properMod(effectValue + inputAValue, mod2n);
-        }
-        break;
-      case GateType.SUB_A:
-        if (inputAValue !== null) {
-          newValue = properMod(effectValue - inputAValue, mod2n);
-        }
-        break;
-
-      // Column 2: Multiply/Divide (requires odd multiplier)
-      case GateType.MUL_A:
-        if (inputAValue !== null && isOdd(inputAValue)) {
-          newValue = properMod(effectValue * inputAValue, mod2n);
-        }
-        break;
-      case GateType.DIV_A:
-        if (inputAValue !== null && isOdd(inputAValue)) {
-          const inv = modularInverse(inputAValue, mod2n);
-          if (inv !== null) {
-            newValue = properMod(effectValue * inv, mod2n);
-          }
-        }
-        break;
-      case GateType.MUL_B:
-        if (inputBValue !== null && isOdd(inputBValue)) {
-          newValue = properMod(effectValue * inputBValue, mod2n);
-        }
-        break;
-      case GateType.DIV_B:
-        if (inputBValue !== null && isOdd(inputBValue)) {
-          const inv = modularInverse(inputBValue, mod2n);
-          if (inv !== null) {
-            newValue = properMod(effectValue * inv, mod2n);
-          }
-        }
-        break;
-
-      // Column 5: Modular Inc/Dec with inputR
-      case GateType.INC_MOD_R:
-        if (inputRValue !== null && inputRValue > 0 && effectValue < inputRValue) {
-          newValue = properMod(effectValue + 1, inputRValue);
-        }
-        break;
-      case GateType.DEC_MOD_R:
-        if (inputRValue !== null && inputRValue > 0 && effectValue < inputRValue) {
-          newValue = properMod(effectValue - 1, inputRValue);
-        }
-        break;
-
-      // Column 6: Modular Arithmetic on A with inputR
-      case GateType.ADD_A_MOD_R:
-        if (inputAValue !== null && inputRValue !== null && inputRValue > 0 && effectValue < inputRValue && inputAValue < inputRValue) {
-          newValue = properMod(effectValue + inputAValue, inputRValue);
-        }
-        break;
-      case GateType.SUB_A_MOD_R:
-        if (inputAValue !== null && inputRValue !== null && inputRValue > 0 && effectValue < inputRValue && inputAValue < inputRValue) {
-          newValue = properMod(effectValue - inputAValue, inputRValue);
-        }
-        break;
-      case GateType.MUL_A_MOD_R:
-        if (inputAValue !== null && inputRValue !== null && inputRValue > 0 && effectValue < inputRValue && areCoprime(inputAValue, inputRValue)) {
-          newValue = properMod(effectValue * inputAValue, inputRValue);
-        }
-        break;
-      case GateType.DIV_A_MOD_R:
-        if (inputAValue !== null && inputRValue !== null && inputRValue > 0 && effectValue < inputRValue && areCoprime(inputAValue, inputRValue)) {
-          const inv = modularInverse(inputAValue, inputRValue);
-          if (inv !== null) {
-            newValue = properMod(effectValue * inv, inputRValue);
-          }
-        }
-        break;
-    }
+    // Compute new value using shared helper
+    const newValue = computeArithmeticResult(gateType, effectValue, inputAValue, inputBValue, inputRValue, mod2n);
 
     // Write the new value to get the target state
     const targetIdx = writeRegisterValue(i, newValue, effectStart, effectEnd, numQubits);
