@@ -5,6 +5,7 @@ import {
   CircuitGrid,
   GateParams,
   SimulationWarning,
+  assertNever,
   isParameterizedGate,
   isArithmeticFixed2x1Gate,
   isArithmeticInputGate,
@@ -13,6 +14,9 @@ import {
   isRequiresInputAGate,
   isRequiresInputBGate,
   isRequiresInputRGate,
+  ArithmeticFixed2x1Gate,
+  ArithmeticComparisonGate,
+  ArithmeticScalarGate,
   ARITHMETIC_FIXED_2X1_GATES,
   ARITHMETIC_INPUT_GATES,
   ARITHMETIC_COMPARISON_GATES,
@@ -332,7 +336,7 @@ export const writeRegisterValue = (
  * @returns The new value after applying the arithmetic operation
  */
 const computeArithmeticResult = (
-  gateType: GateType,
+  gateType: ArithmeticFixed2x1Gate,
   effectValue: number,
   inputAValue: number | null,
   inputBValue: number | null,
@@ -537,7 +541,7 @@ const applyArithmeticPermutationDynamic = (
  */
 const applyComparisonGate = (
   state: ComplexArray,
-  gateType: GateType,
+  gateType: ArithmeticComparisonGate,
   targetRow: number,
   inputAStart: number,
   inputAEnd: number,
@@ -588,6 +592,9 @@ const applyComparisonGate = (
       case GateType.A_NEQ_B:
         shouldFlip = aValue !== bValue;
         break;
+      default:
+        // Unknown comparison gate - no flip (identity behavior)
+        break;
     }
 
     // If comparison is true, flip the target qubit (apply X)
@@ -610,7 +617,7 @@ const applyComparisonGate = (
  */
 const applyScalarGate = (
   state: ComplexArray,
-  gateType: GateType,
+  gateType: ArithmeticScalarGate,
   _targetRow: number, // Unused but kept for consistent API
   controlMask: number,
   antiControlMask: number,
@@ -850,6 +857,9 @@ export const getGateMatrix = (gateType: GateType, params?: GateParams): Complex[
         return getRyMatrix(angle);
       case GateType.RZ:
         return getRzMatrix(angle);
+      default:
+        // Exhaustive check - will error if ParameterizedGate union is extended
+        return assertNever(gateType);
     }
   }
 

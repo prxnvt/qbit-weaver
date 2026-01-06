@@ -5,6 +5,7 @@ import {
   GateParams,
   Complex,
   CustomGateDefinition,
+  isValidGateType,
   isParameterizedGate,
   isControlGate,
   isAllFixed2x1Gate,
@@ -436,8 +437,9 @@ const App: React.FC = () => {
       }
     }
 
-    const type = e.dataTransfer.getData('gateType') as GateType;
-    if (!type) return;
+    const typeStr = e.dataTransfer.getData('gateType');
+    if (!isValidGateType(typeStr)) return;
+    const type = typeStr;
 
     const sourceCellId = e.dataTransfer.getData('sourceCellId');
     const paramsStr = e.dataTransfer.getData('gateParams');
@@ -1041,8 +1043,9 @@ const App: React.FC = () => {
                             }
 
                             // Handle single gate drop
-                            const type = e.dataTransfer.getData('gateType') as GateType;
-                            if (!type) return;
+                            const typeStr = e.dataTransfer.getData('gateType');
+                            if (!isValidGateType(typeStr)) return;
+                            const type = typeStr;
 
                             // Check 2x1 gate row constraint
                             const isFixed2x1 = isAllFixed2x1Gate(type);
