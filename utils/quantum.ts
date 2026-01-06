@@ -1,10 +1,16 @@
 import { Complex, GateType, CircuitGrid, GateParams, SimulationWarning, PARAMETERIZED_GATES, ARITHMETIC_FIXED_2X1_GATES, ARITHMETIC_INPUT_GATES, ARITHMETIC_COMPARISON_GATES, ARITHMETIC_SCALAR_GATES, REQUIRES_INPUT_A, REQUIRES_INPUT_B, REQUIRES_INPUT_R } from '../types';
 import { GATE_DEFS } from '../constants';
+import {
+  EPSILON as COMPLEX_EPSILON,
+  add as complexAdd,
+  mul as complexMul,
+  absSq as complexAbsSq,
+} from './complex';
 
 // --- Constants ---
 
 /** Tolerance for floating-point comparisons in numerical operations */
-export const EPSILON = 1e-10;
+export const EPSILON = COMPLEX_EPSILON;
 const INV_SQRT_2 = 1 / Math.sqrt(2);
 const ZERO_COMPLEX: Complex = { re: 0, im: 0 };
 const ONE_COMPLEX: Complex = { re: 1, im: 0 };
@@ -16,20 +22,17 @@ const ONE_COMPLEX: Complex = { re: 1, im: 0 };
  */
 const isZero = (c: Complex): boolean => c.re === 0 && c.im === 0;
 
-export const cAdd = (a: Complex, b: Complex): Complex => ({
-  re: a.re + b.re,
-  im: a.im + b.im,
-});
+/** @deprecated Use `add` from 'utils/complex' instead */
+export const cAdd = complexAdd;
 
-export const cMul = (a: Complex, b: Complex): Complex => ({
-  re: a.re * b.re - a.im * b.im,
-  im: a.re * b.im + a.im * b.re,
-});
+/** @deprecated Use `mul` from 'utils/complex' instead */
+export const cMul = complexMul;
 
-export const cAbsSq = (a: Complex): number => a.re * a.re + a.im * a.im;
+/** @deprecated Use `absSq` from 'utils/complex' instead */
+export const cAbsSq = complexAbsSq;
 
-// Scale a complex number by a scalar complex
-export const cScale = (a: Complex, scalar: Complex): Complex => cMul(a, scalar);
+/** @deprecated Use `mul` from 'utils/complex' instead */
+export const cScale = (a: Complex, scalar: Complex): Complex => complexMul(a, scalar);
 
 // --- Arithmetic Helper Functions ---
 

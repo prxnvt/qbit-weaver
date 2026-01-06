@@ -3,6 +3,7 @@ import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Complex } from '../types';
 import { parseComplexExpression } from '../utils/complexParser';
+import { add, mul, conj, ZERO } from '../utils/complex';
 
 interface CustomGateDialogProps {
   onConfirm: (matrix: Complex[][], label: string) => void;
@@ -11,28 +12,16 @@ interface CustomGateDialogProps {
 }
 
 const isUnitary = (matrix: Complex[][]): boolean => {
-  const multiply = (a: Complex, b: Complex): Complex => ({
-    re: a.re * b.re - a.im * b.im,
-    im: a.re * b.im + a.im * b.re
-  });
-
-  const conj = (c: Complex): Complex => ({ re: c.re, im: -c.im });
-
-  const add = (a: Complex, b: Complex): Complex => ({
-    re: a.re + b.re,
-    im: a.im + b.im
-  });
-
   // Compute U * U^dagger
   const result: Complex[][] = [
-    [{ re: 0, im: 0 }, { re: 0, im: 0 }],
-    [{ re: 0, im: 0 }, { re: 0, im: 0 }]
+    [ZERO, ZERO],
+    [ZERO, ZERO],
   ];
 
   for (let i = 0; i < 2; i++) {
     for (let j = 0; j < 2; j++) {
       for (let k = 0; k < 2; k++) {
-        result[i][j] = add(result[i][j], multiply(matrix[i][k], conj(matrix[j][k])));
+        result[i][j] = add(result[i][j], mul(matrix[i][k], conj(matrix[j][k])));
       }
     }
   }
