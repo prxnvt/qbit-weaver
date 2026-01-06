@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { Undo2, Redo2 } from 'lucide-react';
 import {
   GateType,
   CircuitGrid,
@@ -24,8 +25,13 @@ import { AngleInput } from './components/AngleInput';
 import { CustomGateDialog } from './components/CustomGateDialog';
 import { AlgorithmSidebar } from './components/AlgorithmSidebar';
 import { InfoBox, HoverInfo } from './components/InfoBox';
-import { runCircuitWithMeasurements, getBlochVector, validateCircuit, ValidationError } from './utils/quantum';
+import { runCircuitWithMeasurements, getBlochVector, validateCircuit, ValidationError, CircuitSimulationResult } from './utils/quantum';
+import { SimulationTimeline } from './components/SimulationTimeline';
 import { AlgorithmTemplate } from './data/algorithms';
+import { useCircuitHistory } from './hooks/useCircuitHistory';
+import { useSelection } from './hooks/useSelection';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useRecentGates } from './hooks/useRecentGates';
 
 interface PendingAngleInput {
   row: number;
@@ -68,6 +74,13 @@ const App: React.FC = () => {
   const [measurements, setMeasurements] = useState<{ qubit: number; result: 0 | 1; probability: number }[]>([]);
   const [populatedRows, setPopulatedRows] = useState<number[]>([]);
 
+  // Step mode state
+  const [stepMode, setStepMode] = useState(false);
+  const [stepIndex, setStepIndex] = useState(0);
+  const [stateHistory, setStateHistory] = useState<Complex[][]>([]);
+  const [activeColumns, setActiveColumns] = useState<number[]>([]);
+  const [isPlaying, setIsPlaying] = useState(false);
+
   // Validation state
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
 
@@ -91,15 +104,39 @@ const App: React.FC = () => {
   // Ref for circuit scrolling
   const circuitScrollRef = useRef<HTMLDivElement>(null);
 
-  const [grid, setGrid] = useState<CircuitGrid>(() => {
+  // Create initial grid
+  const initialGrid = React.useMemo(() => {
     return Array(INITIAL_ROWS).fill(null).map((_, r) =>
       Array(INITIAL_COLS).fill(null).map((_, c) => ({
         gate: null,
         id: `cell-${r}-${c}`
       }))
     );
-  });
+  }, []);
 
+  // Circuit history with undo/redo support
+  const {
+    grid,
+    setGrid,
+    pushState,
+    saveSnapshot,
+    commitDrag,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useCircuitHistory(initialGrid);
+
+  // Selection state for keyboard navigation
+  const {
+    selectedCell,
+    selectCell,
+    clearSelection,
+    isSelected,
+  } = useSelection(MAX_ROWS, grid[0]?.length ?? INITIAL_COLS);
+
+  // Recent gates tracking
+  const { recentGates, addRecentGate } = useRecentGates();
 
   // Hover handlers for InfoBox
   const handleGateHover = useCallback((gate: GateType | null, params?: GateParams) => {
@@ -140,7 +177,11 @@ const App: React.FC = () => {
         setFinalState(result.finalState);
         setMeasurements(result.measurements);
         setPopulatedRows(result.populatedRows);
+        setStateHistory(result.stateHistory);
+        setActiveColumns(result.activeColumns);
         setHasRun(true);
+        // Reset step index if it exceeds new history length
+        setStepIndex(prev => Math.min(prev, result.stateHistory.length - 1));
       }
     }, 100);
 
@@ -167,7 +208,7 @@ const App: React.FC = () => {
 
   // Clear circuit (always keeps 8 rows)
   const handleClear = useCallback(() => {
-    setGrid(
+    pushState(
       Array(MAX_ROWS).fill(null).map((_, r) =>
         Array(INITIAL_COLS).fill(null).map((_, c) => ({
           gate: null,
@@ -179,11 +220,83 @@ const App: React.FC = () => {
     setFinalState(null);
     setMeasurements([]);
     setPopulatedRows([]);
+    setStepIndex(0);
+    setStateHistory([]);
+    setActiveColumns([]);
+    setIsPlaying(false);
+  }, [pushState]);
+
+  // Step mode handlers
+  const handleStepModeToggle = useCallback(() => {
+    setStepMode(prev => {
+      if (prev) {
+        // Turning off step mode - stop playing
+        setIsPlaying(false);
+      } else {
+        // Turning on step mode - go to end (show final state)
+        setStepIndex(stateHistory.length - 1);
+      }
+      return !prev;
+    });
+  }, [stateHistory.length]);
+
+  const handleStepChange = useCallback((step: number) => {
+    setStepIndex(Math.max(0, Math.min(step, stateHistory.length - 1)));
+  }, [stateHistory.length]);
+
+  const handleStepForward = useCallback(() => {
+    setStepIndex(prev => Math.min(prev + 1, stateHistory.length - 1));
+  }, [stateHistory.length]);
+
+  const handleStepBack = useCallback(() => {
+    setStepIndex(prev => Math.max(prev - 1, 0));
   }, []);
+
+  const handlePlayPause = useCallback(() => {
+    setIsPlaying(prev => {
+      if (!prev && stepIndex >= stateHistory.length - 1) {
+        // If at end and pressing play, restart from beginning
+        setStepIndex(0);
+      }
+      return !prev;
+    });
+  }, [stepIndex, stateHistory.length]);
+
+  // Auto-play effect
+  useEffect(() => {
+    if (!isPlaying || !stepMode) return;
+
+    const interval = setInterval(() => {
+      setStepIndex(prev => {
+        if (prev >= stateHistory.length - 1) {
+          setIsPlaying(false);
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 500); // 500ms per step
+
+    return () => clearInterval(interval);
+  }, [isPlaying, stepMode, stateHistory.length]);
+
+  // Compute display state based on step mode
+  const displayState = React.useMemo(() => {
+    if (!hasRun || !finalState) return null;
+    if (stepMode && stateHistory.length > 0) {
+      return stateHistory[stepIndex] ?? finalState;
+    }
+    return finalState;
+  }, [hasRun, finalState, stepMode, stateHistory, stepIndex]);
+
+  // Current column being highlighted in step mode
+  const currentStepColumn = React.useMemo(() => {
+    if (!stepMode || stepIndex === 0 || activeColumns.length === 0) return -1;
+    return activeColumns[stepIndex - 1] ?? -1;
+  }, [stepMode, stepIndex, activeColumns]);
 
 
   const handleDrop = useCallback((row: number, dropCol: number, type: GateType, params?: GateParams) => {
-    setGrid(prev => {
+    pushState(prev => {
       const newGrid = prev.map(r => r.map(c => ({...c})));
       const totalRows = newGrid.length;
 
@@ -234,7 +347,9 @@ const App: React.FC = () => {
       }
       return newGrid;
     });
-  }, []);
+    // Track gate usage for recent gates
+    addRecentGate(type);
+  }, [pushState, addRecentGate]);
 
   // Helper to update spanning gate span (used during resize) - works for REVERSE and arithmetic gates
   const updateSpanningGateSpan = useCallback((col: number, anchorRow: number, newStartRow: number, newEndRow: number, gateType: GateType) => {
@@ -327,7 +442,7 @@ const App: React.FC = () => {
 
   // Delete entire spanning gate (all cells in span) - works for REVERSE and arithmetic gates
   const deleteSpanningGate = useCallback((col: number, anchorRow: number) => {
-    setGrid(prev => {
+    pushState(prev => {
       const newGrid = prev.map(r => r.map(c => ({...c})));
       const anchorCell = newGrid[anchorRow]?.[col];
       if (!anchorCell || !anchorCell.gate) return prev;
@@ -348,7 +463,27 @@ const App: React.FC = () => {
 
       return newGrid;
     });
-  }, []);
+  }, [pushState]);
+
+  // Keyboard shortcuts for selection, navigation, and gate placement
+  useKeyboardShortcuts({
+    selectedCell,
+    selectCell,
+    clearSelection,
+    maxRows: MAX_ROWS,
+    displayColCount,
+    grid,
+    pushState,
+    deleteSpanningGate,
+    addRecentGate,
+  });
+
+  // Save snapshot when drag starts (resizingGate becomes non-null)
+  useEffect(() => {
+    if (resizingGate) {
+      saveSnapshot();
+    }
+  }, [resizingGate, saveSnapshot]);
 
   // Handle spanning gate resize mouse events
   useEffect(() => {
@@ -384,6 +519,8 @@ const App: React.FC = () => {
     };
 
     const handleMouseUp = () => {
+      // Commit drag as single history entry before clearing state
+      commitDrag();
       setResizingGate(null);
     };
 
@@ -394,7 +531,7 @@ const App: React.FC = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [resizingGate, updateSpanningGateSpan]);
+  }, [resizingGate, updateSpanningGateSpan, commitDrag]);
 
   const handleDragOver = (e: React.DragEvent, row: number, col: number) => {
     e.preventDefault();
@@ -445,7 +582,7 @@ const App: React.FC = () => {
     const paramsStr = e.dataTransfer.getData('gateParams');
     const existingParams = paramsStr ? JSON.parse(paramsStr) as GateParams : undefined;
 
-    // If moving from another cell, clear the source cell
+    // If moving from another cell, combine clear-source + place-target atomically
     if (sourceCellId) {
       // Parse source cell id: "cell-{row}-{col}"
       const parts = sourceCellId.split('-');
@@ -455,13 +592,57 @@ const App: React.FC = () => {
       // Don't do anything if dropping on same cell
       if (sourceRow === row && sourceCol === col) return;
 
-      // Clear source cell
-      setGrid(prev => {
+      // Atomic: clear source + place target in single pushState
+      pushState(prev => {
         const newGrid = prev.map(r => r.map(c => ({...c})));
+        const totalRows = newGrid.length;
+
+        // Clear source cell
         newGrid[sourceRow][sourceCol].gate = null;
         newGrid[sourceRow][sourceCol].params = undefined;
+
+        // Place target cell (same logic as handleDrop)
+        const isFixed2x1 = isAllFixed2x1Gate(type);
+        const isResizableSpanning = isResizableSpanningGate(type);
+
+        if (isFixed2x1) {
+          if (row + 1 >= totalRows) {
+            // Not enough room - only clear source
+            return newGrid;
+          }
+
+          const fixedSpan = { startRow: row, endRow: row + 1 };
+
+          newGrid[row][col] = {
+            ...newGrid[row][col],
+            gate: type,
+            params: { ...existingParams, reverseSpan: fixedSpan, isSpanContinuation: false }
+          };
+          newGrid[row + 1][col] = {
+            ...newGrid[row + 1][col],
+            gate: type,
+            params: { ...existingParams, reverseSpan: fixedSpan, isSpanContinuation: true }
+          };
+        } else if (isResizableSpanning) {
+          const reverseSpan = existingParams?.reverseSpan || { startRow: row, endRow: row };
+          newGrid[row][col] = {
+            ...newGrid[row][col],
+            gate: type,
+            params: { ...existingParams, reverseSpan, isSpanContinuation: false }
+          };
+        } else {
+          newGrid[row][col] = {
+            ...newGrid[row][col],
+            gate: type,
+            params: existingParams
+          };
+        }
+
         return newGrid;
       });
+      // Track gate usage for recent gates (move operation)
+      addRecentGate(type);
+      return;
     }
 
     // Check if this is a parameterized gate (only prompt for new gates from sidebar)
@@ -521,7 +702,7 @@ const App: React.FC = () => {
     const requiredRows = dropRow + templateRows;
     const requiredCols = dropCol + templateCols;
 
-    setGrid(prev => {
+    pushState(prev => {
       // Expand grid if needed
       let newGrid = prev.map(r => r.map(c => ({ ...c })));
 
@@ -590,7 +771,7 @@ const App: React.FC = () => {
     setFinalState(null);
     setMeasurements([]);
     setPopulatedRows([]);
-  }, []);
+  }, [pushState]);
 
 
   const clearCell = (row: number, col: number, e: React.MouseEvent) => {
@@ -606,7 +787,7 @@ const App: React.FC = () => {
       }
     }
 
-    setGrid(prev => {
+    pushState(prev => {
       const newGrid = prev.map(r => r.map(c => ({...c})));
       newGrid[row][col].gate = null;
       newGrid[row][col].params = undefined;
@@ -766,7 +947,7 @@ const App: React.FC = () => {
         }
     }
 
-    const lines = [];
+    const lines: React.ReactNode[] = [];
 
     // SWAP lines
     for (let i = 0; i < swapRows.length - 1; i += 2) {
@@ -830,6 +1011,38 @@ const App: React.FC = () => {
     return lines;
   };
 
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if input or dialog is focused
+      const activeElement = document.activeElement;
+      if (
+        activeElement &&
+        (activeElement.tagName === 'INPUT' ||
+         activeElement.tagName === 'TEXTAREA' ||
+         activeElement.getAttribute('role') === 'dialog' ||
+         activeElement.closest('[role="dialog"]'))
+      ) {
+        return;
+      }
+
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modifier = isMac ? e.metaKey : e.ctrlKey;
+
+      if (modifier && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
+
   return (
     <div className="flex flex-col h-screen w-screen bg-black text-white overflow-hidden font-mono font-bold">
 
@@ -843,12 +1056,58 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Step Mode Toggle */}
+          <button
+            onClick={handleStepModeToggle}
+            disabled={!hasRun || stateHistory.length <= 1}
+            className={`flex items-center gap-2 px-3 py-1.5 border-2 transition-colors text-sm font-bold uppercase ${
+              stepMode
+                ? 'bg-cyan-600 border-cyan-600 text-white'
+                : hasRun && stateHistory.length > 1
+                  ? 'border-white hover:bg-white hover:text-black'
+                  : 'border-white/30 text-white/30 cursor-not-allowed'
+            }`}
+            title="Toggle step-through simulation mode"
+          >
+            <span>Step Mode</span>
+          </button>
+
           {/* Measurement Results */}
-          {hasRun && measurements.length > 0 && (
+          {hasRun && measurements.length > 0 && !stepMode && (
             <div className="text-xs text-white">
               Measurements: {measurements.map(m => `q${m.qubit}=${m.result}`).join(', ')}
             </div>
           )}
+
+          {/* Undo Button */}
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            className={`flex items-center gap-1 px-3 py-1.5 border-2 transition-colors text-sm font-bold uppercase ${
+              canUndo
+                ? 'border-white hover:bg-white hover:text-black'
+                : 'border-white/30 text-white/30 cursor-not-allowed'
+            }`}
+            title="Undo (Ctrl+Z)"
+          >
+            <Undo2 size={16} />
+            <span>Undo</span>
+          </button>
+
+          {/* Redo Button */}
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            className={`flex items-center gap-1 px-3 py-1.5 border-2 transition-colors text-sm font-bold uppercase ${
+              canRedo
+                ? 'border-white hover:bg-white hover:text-black'
+                : 'border-white/30 text-white/30 cursor-not-allowed'
+            }`}
+            title="Redo (Ctrl+Shift+Z)"
+          >
+            <Redo2 size={16} />
+            <span>Redo</span>
+          </button>
 
           {/* Clear Button - rightmost */}
           <button
@@ -867,7 +1126,18 @@ const App: React.FC = () => {
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
           {/* Circuit Area - Scrollable, takes remaining space */}
-          <section className="flex-1 relative bg-black overflow-auto min-h-0">
+          <section
+            className="flex-1 relative bg-black overflow-auto min-h-0"
+            onClick={(e) => {
+              // Clear selection when clicking on the background (not on grid cells)
+              // Check if the click was on an element with data-grid-cell or a child of one
+              const target = e.target as HTMLElement;
+              const clickedOnCell = target.closest('[data-grid-cell]');
+              if (!clickedOnCell) {
+                clearSelection();
+              }
+            }}
+          >
 
             {/* Circuit Grid */}
             <div ref={circuitScrollRef} className="py-4 pl-4 pr-8 relative" id="circuit-container">
@@ -894,8 +1164,8 @@ const App: React.FC = () => {
                   // Get Bloch vector for this row (post-run only)
                   const filteredIdx = populatedRows.indexOf(rIdx);
                   const isPopulated = filteredIdx !== -1;
-                  const [bx, by, bz] = (hasRun && finalState && isPopulated)
-                    ? getBlochVector(finalState, filteredIdx, populatedRows.length)
+                  const [bx, by, bz] = (hasRun && displayState && isPopulated)
+                    ? getBlochVector(displayState, filteredIdx, populatedRows.length)
                     : [0, 0, 1];
                   const prob1Pct = hasRun ? ((1 - bz) / 2 * 100).toFixed(0) : '0';
 
@@ -943,25 +1213,42 @@ const App: React.FC = () => {
                               isTemplateInvalid = endRow >= MAX_ROWS;
                             }
 
+                            // Check if this cell is selected
+                            const isCellSelected = isSelected(rIdx, cIdx);
+
+                            // Step mode column highlighting
+                            const isStepColumn = stepMode && cIdx === currentStepColumn;
+
                             return (
                               <div
                                 key={cell.id}
+                                data-grid-cell
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  selectCell(rIdx, cIdx);
+                                }}
                                 onDragOver={(e) => handleDragOver(e, rIdx, cIdx)}
                                 onDragLeave={handleDragLeave}
                                 onDrop={(e) => handleDropEvent(e, rIdx, cIdx)}
                                 onContextMenu={(e) => clearCell(rIdx, cIdx, e)}
-                                className={`flex items-center justify-center relative transition-colors border-r border-white/35 ${
-                                  isInTemplateArea
-                                    ? (isTemplateInvalid
-                                        ? 'bg-red-500/30'
-                                        : isTemplateAnchor
-                                          ? 'bg-yellow-400/60'
-                                          : 'bg-yellow-400/30')
-                                    : isHovered
-                                      ? 'bg-white/20'
-                                      : (isRowHighlighted || isColHighlighted)
-                                        ? 'bg-white/10'
-                                        : ''
+                                className={`flex items-center justify-center relative transition-all duration-200 border-r border-white/35 cursor-pointer ${
+                                  isCellSelected
+                                    ? 'ring-2 ring-cyan-400 ring-inset'
+                                    : ''
+                                } ${
+                                  isStepColumn
+                                    ? 'bg-cyan-500/20 border-l-2 border-r-2 border-l-cyan-400 border-r-cyan-400'
+                                    : isInTemplateArea
+                                      ? (isTemplateInvalid
+                                          ? 'bg-red-500/30'
+                                          : isTemplateAnchor
+                                            ? 'bg-yellow-400/60'
+                                            : 'bg-yellow-400/30')
+                                      : isHovered
+                                        ? 'bg-white/20'
+                                        : (isRowHighlighted || isColHighlighted)
+                                          ? 'bg-white/10'
+                                          : ''
                                 }`}
                                 style={{ height: ROW_HEIGHT, width: CELL_WIDTH }}
                               >
@@ -1138,10 +1425,10 @@ const App: React.FC = () => {
                 </div>
 
                 {/* Amplitude Grid - fixed position to the right of rows */}
-                {hasRun && finalState && populatedRows.length > 0 && (
-                  <div className="ml-4">
+                {hasRun && displayState && populatedRows.length > 0 && (
+                  <div className="ml-4 transition-opacity duration-200">
                     <AmplitudeGrid
-                      amplitudes={finalState}
+                      amplitudes={displayState}
                       numQubits={populatedRows.length}
                       maxHeight={MAX_ROWS * ROW_HEIGHT}
                       rowHeight={ROW_HEIGHT}
@@ -1155,11 +1442,26 @@ const App: React.FC = () => {
             </div>
           </section>
 
+          {/* Simulation Timeline - shows when step mode is active */}
+          {stepMode && hasRun && stateHistory.length > 1 && (
+            <SimulationTimeline
+              totalSteps={stateHistory.length - 1}
+              currentStep={stepIndex}
+              onStepChange={handleStepChange}
+              isPlaying={isPlaying}
+              onPlayPause={handlePlayPause}
+              onStepForward={handleStepForward}
+              onStepBack={handleStepBack}
+              activeColumns={activeColumns}
+            />
+          )}
+
           {/* Gate Library - Bottom of left column */}
           <GateLibrary
             onHoverGate={handleGateHover}
             customGates={customGates}
             onAddCustomGate={handleAddCustomGate}
+            recentGates={recentGates}
           />
         </div>
 

@@ -446,6 +446,16 @@ export function isSpanningGate(gate: GateType): gate is SpanningGate {
   return (ALL_SPANNING_GATE_TYPES as readonly GateType[]).includes(gate);
 }
 
+/** Type guard: checks if a string is a valid GateType enum value */
+export function isValidGateType(value: string): value is GateType {
+  return Object.values(GateType).includes(value as GateType);
+}
+
+/** Exhaustiveness check helper for switch statements */
+export function assertNever(x: never): never {
+  throw new Error(`Unexpected value: ${x}`);
+}
+
 /** Gates with resizable spans (only REVERSE currently) */
 export const RESIZABLE_SPANNING_GATES = [
   GateType.REVERSE,
