@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import 'computer-modern/cmu-typewriter-text.css';
 import './index.css';
 import App from './App';
 

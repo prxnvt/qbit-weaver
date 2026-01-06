@@ -12,7 +12,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        mono: ['JetBrains Mono', 'monospace'],
+        mono: ['CMU Typewriter Text', 'monospace'],
       },
       colors: {
         border: 'hsl(var(--border))',
