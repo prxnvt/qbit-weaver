@@ -42,6 +42,77 @@ interface PendingAngleInput {
   position: { x: number; y: number };
 }
 
+// Time Parameter Display component - editable when frozen
+const TimeParameterDisplay: React.FC<{
+  timeParameter: number;
+  isFrozen: boolean;
+  onTimeChange: (t: number) => void;
+}> = ({ timeParameter, isFrozen, onTimeChange }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleClick = () => {
+    if (isFrozen && !isEditing) {
+      setInputValue(timeParameter.toFixed(3));
+      setIsEditing(true);
+    }
+  };
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleSubmit = () => {
+    const parsed = parseFloat(inputValue);
+    if (!isNaN(parsed)) {
+      // Clamp to [0, 1]
+      const clamped = Math.max(0, Math.min(1, parsed));
+      onTimeChange(clamped);
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSubmit();
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-base font-bold uppercase text-blue-400">t =</span>
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onBlur={handleSubmit}
+          onKeyDown={handleKeyDown}
+          className="w-16 px-1 py-0.5 bg-blue-900 border border-blue-400 text-blue-200 font-mono text-base font-bold text-center outline-none focus:ring-1 focus:ring-blue-400"
+          placeholder="0.000"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <span
+      className={`text-base font-bold uppercase ${isFrozen ? 'text-blue-400 cursor-pointer hover:underline' : 'text-white'}`}
+      onClick={handleClick}
+      title={isFrozen ? 'Click to set time value (0-1)' : undefined}
+    >
+      t = {timeParameter.toFixed(3)}
+    </span>
+  );
+};
+
 // Helper to get the actual populated dimensions of a template (rows with gates, rightmost col with gate)
 const getTemplatePopulatedDimensions = (template: AlgorithmTemplate): { rows: number; cols: number } => {
   const grid = template.grid;
@@ -1185,22 +1256,6 @@ const App: React.FC = () => {
             <h1 className="font-bold text-4xl tracking-tight">Qbit Weaver</h1>
           </div>
 
-          {/* Freeze Button - freezes t animation */}
-          <button
-            onClick={() => setIsFrozen(prev => !prev)}
-            disabled={stepMode || !hasTimeGates}
-            className={`flex items-center gap-2 px-4 py-2 border-2 transition-colors text-base font-bold uppercase ${
-              isFrozen
-                ? 'bg-blue-600 border-blue-600 text-white'
-                : stepMode || !hasTimeGates
-                  ? 'border-white/30 text-white/30 cursor-not-allowed'
-                  : 'border-white hover:bg-white hover:text-black'
-            }`}
-            title={stepMode ? 'Freeze unavailable in step mode' : !hasTimeGates ? 'No time-parameterized gates in circuit' : 'Freeze/unfreeze time parameter animation'}
-          >
-            <span>Freeze</span>
-          </button>
-
           {/* Step Mode Toggle */}
           <button
             onClick={handleStepModeToggle}
@@ -1219,13 +1274,6 @@ const App: React.FC = () => {
             <span>Step Mode</span>
           </button>
 
-          {/* Time Parameter Display - shows when time gates exist */}
-          {hasTimeGates && (
-            <span className={`text-base font-bold uppercase ${isFrozen ? 'text-blue-400' : 'text-white'}`}>
-              t = {timeParameter.toFixed(2)}
-            </span>
-          )}
-
           {/* Simulation Timeline - visible when step mode is active */}
           {stepMode && hasRun && stateHistory.length > 1 && (
             <SimulationTimeline
@@ -1237,6 +1285,31 @@ const App: React.FC = () => {
               onStepForward={handleStepForward}
               onStepBack={handleStepBack}
               activeColumns={activeColumns}
+            />
+          )}
+
+          {/* Freeze Button - freezes t animation */}
+          <button
+            onClick={() => setIsFrozen(prev => !prev)}
+            disabled={stepMode || !hasTimeGates}
+            className={`flex items-center gap-2 px-4 py-2 border-2 transition-colors text-base font-bold uppercase ${
+              isFrozen
+                ? 'bg-blue-600 border-blue-600 text-white'
+                : stepMode || !hasTimeGates
+                  ? 'border-white/30 text-white/30 cursor-not-allowed'
+                  : 'border-white hover:bg-white hover:text-black'
+            }`}
+            title={stepMode ? 'Freeze unavailable in step mode' : !hasTimeGates ? 'No time-parameterized gates in circuit' : 'Freeze/unfreeze time parameter animation'}
+          >
+            <span>Freeze</span>
+          </button>
+
+          {/* Time Parameter Display - shows when time gates exist, clickable when frozen */}
+          {hasTimeGates && (
+            <TimeParameterDisplay
+              timeParameter={timeParameter}
+              isFrozen={isFrozen}
+              onTimeChange={setTimeParameter}
             />
           )}
         </div>
