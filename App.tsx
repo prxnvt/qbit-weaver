@@ -1046,6 +1046,14 @@ const App: React.FC = () => {
             <h1 className="font-bold text-4xl tracking-tight">Qbit Weaver</h1>
           </div>
 
+          {/* Freeze Button */}
+          <button
+            className="flex items-center gap-2 px-4 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors text-base font-bold uppercase"
+            title="Freeze circuit"
+          >
+            <span>Freeze</span>
+          </button>
+
           {/* Step Mode Toggle */}
           <button
             onClick={handleStepModeToggle}
