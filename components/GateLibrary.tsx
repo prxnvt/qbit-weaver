@@ -15,9 +15,9 @@ interface GateLibraryProps {
 }
 
 // Sub-library categories
-type SubLibrary = 'Standard' | 'Parameterized' | 'Arithmetic' | 'Visualization' | 'Custom';
+type SubLibrary = 'Standard' | 'Parameterized' | 'Arithmetic' | 'Visualization' | 'Circuitry' | 'Custom';
 
-const SUB_LIBRARIES: SubLibrary[] = ['Standard', 'Parameterized', 'Arithmetic', 'Visualization', 'Custom'];
+const SUB_LIBRARIES: SubLibrary[] = ['Standard', 'Parameterized', 'Arithmetic', 'Visualization', 'Circuitry', 'Custom'];
 
 // Parameterized sub-library gates (each column ordered X, Y, Z):
 // Col 1: RX, RY, RZ (angle-prompted)
@@ -110,15 +110,42 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
     ...ARITHMETIC_GATE_COLUMNS.flat(),
   ].filter(Boolean), []);
 
-  // Search results - filter gates by query
+  // Search results - filter and sort gates by query relevance
   const searchResults = useMemo(() => {
     if (!debouncedQuery.trim()) return null;
     const q = debouncedQuery.toLowerCase();
-    return allGates.filter(type => {
+
+    // Filter matching gates (only search label and fullName, not description)
+    const matches = allGates.filter(type => {
       const def = GATE_DEFS[type];
       return def?.fullName?.toLowerCase().includes(q) ||
-             def?.label?.toLowerCase().includes(q) ||
-             def?.description?.toLowerCase().includes(q);
+             def?.label?.toLowerCase().includes(q);
+    });
+
+    // Sort by relevance: starts-with > contains
+    return matches.sort((a, b) => {
+      const defA = GATE_DEFS[a];
+      const defB = GATE_DEFS[b];
+
+      const labelA = defA?.label?.toLowerCase() || '';
+      const labelB = defB?.label?.toLowerCase() || '';
+      const fullNameA = defA?.fullName?.toLowerCase() || '';
+      const fullNameB = defB?.fullName?.toLowerCase() || '';
+
+      // Priority: exact label match > label starts with > fullName starts with > contains
+      const scoreA =
+        labelA === q ? 4 :
+        labelA.startsWith(q) ? 3 :
+        fullNameA.startsWith(q) ? 2 :
+        labelA.includes(q) || fullNameA.includes(q) ? 1 : 0;
+
+      const scoreB =
+        labelB === q ? 4 :
+        labelB.startsWith(q) ? 3 :
+        fullNameB.startsWith(q) ? 2 :
+        labelB.includes(q) || fullNameB.includes(q) ? 1 : 0;
+
+      return scoreB - scoreA;
     });
   }, [debouncedQuery, allGates]);
 
@@ -231,6 +258,8 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
         return renderGateColumns(PARAMETERIZED_GATE_COLUMNS);
       case 'Arithmetic':
         return renderGateColumns(ARITHMETIC_GATE_COLUMNS);
+      case 'Circuitry':
+        return renderEmptySubLibrary();
       case 'Custom':
         return renderCustomGates();
       default:

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Undo2, Redo2 } from 'lucide-react';
+import { Undo2, Redo2, X } from 'lucide-react';
 import {
   GateType,
   CircuitGrid,
@@ -140,6 +140,9 @@ const App: React.FC = () => {
   const [pendingAngle, setPendingAngle] = useState<PendingAngleInput | null>(null);
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [customGates, setCustomGates] = useState<CustomGateDefinition[]>([]);
+
+  // Header modal state (Info, Help, Account)
+  const [activeModal, setActiveModal] = useState<'info' | 'help' | 'account' | null>(null);
 
   // Run workflow state
   const [hasRun, setHasRun] = useState(false);
@@ -1315,42 +1318,28 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Undo Button */}
+          {/* Info Button */}
           <button
-            onClick={undo}
-            disabled={!canUndo}
-            className={`flex items-center gap-2 px-4 py-2 border-2 transition-colors text-base font-bold uppercase ${
-              canUndo
-                ? 'border-white hover:bg-white hover:text-black'
-                : 'border-white/30 text-white/30 cursor-not-allowed'
-            }`}
-            title="Undo (Ctrl+Z)"
+            onClick={() => setActiveModal('info')}
+            className="flex items-center gap-2 px-4 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors text-base font-bold uppercase"
           >
-            <Undo2 size={20} />
-            <span>Undo</span>
+            <span>Info</span>
           </button>
 
-          {/* Redo Button */}
+          {/* Help Button */}
           <button
-            onClick={redo}
-            disabled={!canRedo}
-            className={`flex items-center gap-2 px-4 py-2 border-2 transition-colors text-base font-bold uppercase ${
-              canRedo
-                ? 'border-white hover:bg-white hover:text-black'
-                : 'border-white/30 text-white/30 cursor-not-allowed'
-            }`}
-            title="Redo (Ctrl+Shift+Z)"
+            onClick={() => setActiveModal('help')}
+            className="flex items-center gap-2 px-4 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors text-base font-bold uppercase"
           >
-            <Redo2 size={20} />
-            <span>Redo</span>
+            <span>Help</span>
           </button>
 
-          {/* Clear Button - rightmost */}
+          {/* Account Button */}
           <button
-            onClick={handleClear}
-            className="flex items-center gap-2 px-5 py-2 border-2 border-white hover:bg-red-600 hover:border-red-600 hover:text-white transition-colors text-base font-bold uppercase"
+            onClick={() => setActiveModal('account')}
+            className="flex items-center gap-2 px-4 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors text-base font-bold uppercase"
           >
-            <span>Clear</span>
+            <span>Account</span>
           </button>
         </div>
       </header>
@@ -1362,21 +1351,22 @@ const App: React.FC = () => {
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
           {/* Circuit Area - Scrollable, takes remaining space */}
-          <section
-            className="flex-1 relative bg-black overflow-auto min-h-0"
-            onClick={(e) => {
-              // Clear selection when clicking on the background (not on grid cells)
-              // Check if the click was on an element with data-grid-cell or a child of one
-              const target = e.target as HTMLElement;
-              const clickedOnCell = target.closest('[data-grid-cell]');
-              if (!clickedOnCell) {
-                clearSelection();
-              }
-            }}
-          >
-
-            {/* Circuit Grid */}
-            <div ref={circuitScrollRef} className="py-4 pl-4 pr-8 relative" id="circuit-container">
+          <section className="flex-1 relative bg-black min-h-0">
+            {/* Scrollable content wrapper */}
+            <div
+              className="absolute inset-0 overflow-auto"
+              onClick={(e) => {
+                // Clear selection when clicking on the background (not on grid cells)
+                // Check if the click was on an element with data-grid-cell or a child of one
+                const target = e.target as HTMLElement;
+                const clickedOnCell = target.closest('[data-grid-cell]');
+                if (!clickedOnCell) {
+                  clearSelection();
+                }
+              }}
+            >
+              {/* Circuit Grid */}
+              <div ref={circuitScrollRef} className="py-4 pl-4 pr-8 pb-20 relative" id="circuit-container">
             {/* Circuit Wires and Gates */}
             <div className="relative inline-block min-w-full">
               {/* Column Connectors Layer */}
@@ -1688,6 +1678,48 @@ const App: React.FC = () => {
               </div>
             </div>
 
+              </div>
+            </div>
+
+            {/* Floating Undo/Redo/Clear Buttons - outside scrollable area */}
+            <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2 bg-black/90 border border-white/30 rounded-lg p-2 shadow-lg">
+              {/* Undo Button */}
+              <button
+                onClick={undo}
+                disabled={!canUndo}
+                className={`flex items-center gap-2 px-3 py-1.5 border-2 transition-colors text-sm font-bold uppercase ${
+                  canUndo
+                    ? 'border-white hover:bg-white hover:text-black'
+                    : 'border-white/30 text-white/30 cursor-not-allowed'
+                }`}
+                title="Undo (Ctrl+Z)"
+              >
+                <Undo2 size={16} />
+                <span>Undo</span>
+              </button>
+
+              {/* Redo Button */}
+              <button
+                onClick={redo}
+                disabled={!canRedo}
+                className={`flex items-center gap-2 px-3 py-1.5 border-2 transition-colors text-sm font-bold uppercase ${
+                  canRedo
+                    ? 'border-white hover:bg-white hover:text-black'
+                    : 'border-white/30 text-white/30 cursor-not-allowed'
+                }`}
+                title="Redo (Ctrl+Shift+Z)"
+              >
+                <Redo2 size={16} />
+                <span>Redo</span>
+              </button>
+
+              {/* Clear Button */}
+              <button
+                onClick={handleClear}
+                className="flex items-center gap-2 px-3 py-1.5 border-2 border-white hover:bg-red-600 hover:border-red-600 hover:text-white transition-colors text-sm font-bold uppercase"
+              >
+                <span>Clear</span>
+              </button>
             </div>
           </section>
 
@@ -1733,6 +1765,39 @@ const App: React.FC = () => {
           onCancel={handleCustomCancel}
           existingNames={customGates.map(g => g.label)}
         />
+      )}
+
+      {/* Info/Help/Account Modal */}
+      {activeModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setActiveModal(null)}
+        >
+          <div
+            className="bg-neutral-900 border-2 border-white rounded-lg p-6 shadow-xl max-w-md w-full mx-4 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setActiveModal(null)}
+              className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+            >
+              <X size={24} />
+            </button>
+
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-white uppercase mb-6">
+              {activeModal === 'info' && 'Info'}
+              {activeModal === 'help' && 'Help'}
+              {activeModal === 'account' && 'Account'}
+            </h2>
+
+            {/* Content */}
+            <div className="text-white/70 text-center py-8">
+              To be implemented
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
