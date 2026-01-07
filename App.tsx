@@ -166,6 +166,13 @@ const App: React.FC = () => {
     }
   }, [hasTimeGates, stepMode]);
 
+  // Auto-disable freeze when all time gates are removed
+  useEffect(() => {
+    if (!hasTimeGates && isFrozen) {
+      setIsFrozen(false);
+    }
+  }, [hasTimeGates, isFrozen]);
+
   // Time animation loop - runs continuously when time gates are present and not frozen
   useEffect(() => {
     if (!hasTimeGates) {
