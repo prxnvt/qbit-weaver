@@ -7,6 +7,12 @@ import {
   SimulationWarning,
   assertNever,
   isParameterizedGate,
+  isTimeParameterizedGate,
+  isExponentialGate,
+  isQFTGate,
+  isInputParameterizedGate,
+  isInputParameterizedGateA,
+  isInputParameterizedGateB,
   isArithmeticFixed2x1Gate,
   isArithmeticInputGate,
   isArithmeticComparisonGate,
@@ -842,11 +848,608 @@ export const getRzMatrix = (theta: number): Complex[][] => {
   ];
 };
 
+// ============================================================================
+// Time-parameterized gate matrices (t is time parameter, 0 to 1)
+// ============================================================================
+
+/**
+ * Z^t matrix: [[1, 0], [0, e^(i×2π×t)]]
+ * Rotation by t full turns around Z-axis.
+ * @param t Time parameter in range [0, 1]
+ */
+export const getZtMatrix = (t: number): Complex[][] => {
+  const phase = 2 * Math.PI * t;
+  return [
+    [{ re: 1, im: 0 }, { re: 0, im: 0 }],
+    [{ re: 0, im: 0 }, { re: Math.cos(phase), im: Math.sin(phase) }]
+  ];
+};
+
+/**
+ * X^t matrix: H × Z^t × H
+ * Rotation by t full turns around X-axis.
+ * X^t = [[cos(πt), -i×sin(πt)], [-i×sin(πt), cos(πt)]]
+ * @param t Time parameter in range [0, 1]
+ */
+export const getXtMatrix = (t: number): Complex[][] => {
+  const angle = Math.PI * t;
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  return [
+    [{ re: c, im: 0 }, { re: 0, im: -s }],
+    [{ re: 0, im: -s }, { re: c, im: 0 }]
+  ];
+};
+
+/**
+ * Y^t matrix: √X† × Z^t × √X
+ * Rotation by t full turns around Y-axis.
+ * Y^t = [[cos(πt), -sin(πt)], [sin(πt), cos(πt)]]
+ * @param t Time parameter in range [0, 1]
+ */
+export const getYtMatrix = (t: number): Complex[][] => {
+  const angle = Math.PI * t;
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  return [
+    [{ re: c, im: 0 }, { re: -s, im: 0 }],
+    [{ re: s, im: 0 }, { re: c, im: 0 }]
+  ];
+};
+
+// ============================================================================
+// Exponential Gate Matrix Generators
+// ============================================================================
+
+/**
+ * e^(iπtZ) matrix: Exponential of Pauli Z with time parameter.
+ * e^(iπtZ) = [[e^(iπt), 0], [0, e^(-iπt)]]
+ * @param t Time parameter in range [0, 1]
+ */
+export const getExpZMatrix = (t: number): Complex[][] => {
+  const phase = Math.PI * t;
+  return [
+    [{ re: Math.cos(phase), im: Math.sin(phase) }, { re: 0, im: 0 }],
+    [{ re: 0, im: 0 }, { re: Math.cos(phase), im: -Math.sin(phase) }]
+  ];
+};
+
+/**
+ * e^(iπtX) matrix: Exponential of Pauli X with time parameter.
+ * e^(iπtX) = [[cos(πt), i·sin(πt)], [i·sin(πt), cos(πt)]]
+ * @param t Time parameter in range [0, 1]
+ */
+export const getExpXMatrix = (t: number): Complex[][] => {
+  const c = Math.cos(Math.PI * t);
+  const s = Math.sin(Math.PI * t);
+  return [
+    [{ re: c, im: 0 }, { re: 0, im: s }],
+    [{ re: 0, im: s }, { re: c, im: 0 }]
+  ];
+};
+
+/**
+ * e^(iπtY) matrix: Exponential of Pauli Y with time parameter.
+ * e^(iπtY) = [[cos(πt), sin(πt)], [-sin(πt), cos(πt)]]
+ * @param t Time parameter in range [0, 1]
+ */
+export const getExpYMatrix = (t: number): Complex[][] => {
+  const c = Math.cos(Math.PI * t);
+  const s = Math.sin(Math.PI * t);
+  return [
+    [{ re: c, im: 0 }, { re: s, im: 0 }],
+    [{ re: -s, im: 0 }, { re: c, im: 0 }]
+  ];
+};
+
+// ============================================================================
+// Input-Parameterized Gate Application Functions
+// ============================================================================
+
+/**
+ * Apply Z^A or Z^B gate: Z rotation by (A/2^n) or (B/2^n) full turns.
+ * This is a diagonal operation that only modifies phases, not amplitudes.
+ * For each basis state |k⟩, if target qubit is |1⟩, apply phase e^(i×2π×inputValue/2^n).
+ *
+ * @param state Current quantum state
+ * @param targetRow The row index of the target qubit
+ * @param inputSpan The row range of the input register
+ * @param numQubits Total number of qubits
+ * @param controlMask Bitmask for control conditions (optional)
+ * @param antiControlMask Bitmask for anti-control conditions (optional)
+ */
+export const applyInputParameterizedZ = (
+  state: ComplexArray,
+  targetRow: number,
+  inputSpan: { startRow: number; endRow: number },
+  numQubits: number,
+  controlMask: number = 0,
+  antiControlMask: number = 0
+): ComplexArray => {
+  const numStates = 1 << numQubits;
+  const targetBit = 1 << (numQubits - 1 - targetRow);
+  const inputSize = inputSpan.endRow - inputSpan.startRow + 1;
+  const inputMax = 1 << inputSize;
+
+  const result = createComplexArray(numStates);
+
+  for (let i = 0; i < numStates; i++) {
+    const re = state[i * 2];
+    const im = state[i * 2 + 1];
+
+    // Check control conditions
+    if ((i & controlMask) !== controlMask || (i & antiControlMask) !== 0) {
+      result[i * 2] = re;
+      result[i * 2 + 1] = im;
+      continue;
+    }
+
+    // If target qubit is |0⟩, no phase change
+    if ((i & targetBit) === 0) {
+      result[i * 2] = re;
+      result[i * 2 + 1] = im;
+      continue;
+    }
+
+    // Target qubit is |1⟩: read input value and apply phase
+    const inputValue = readRegisterValue(i, inputSpan.startRow, inputSpan.endRow, numQubits);
+    const phase = (2 * Math.PI * inputValue) / inputMax;
+    const cosP = Math.cos(phase);
+    const sinP = Math.sin(phase);
+
+    // Multiply amplitude by e^(i×phase) = cos(phase) + i×sin(phase)
+    result[i * 2] = re * cosP - im * sinP;
+    result[i * 2 + 1] = re * sinP + im * cosP;
+  }
+
+  return result;
+};
+
+/**
+ * Apply X^A or X^B gate: X rotation by (A/2^n) or (B/2^n) full turns.
+ * Uses the formula X^t = H × Z^t × H, which simplifies to Rx(2πt).
+ * This mixes basis states, so we process pairs of states differing only in target qubit.
+ *
+ * @param state Current quantum state
+ * @param targetRow The row index of the target qubit
+ * @param inputSpan The row range of the input register
+ * @param numQubits Total number of qubits
+ * @param controlMask Bitmask for control conditions (optional)
+ * @param antiControlMask Bitmask for anti-control conditions (optional)
+ */
+export const applyInputParameterizedX = (
+  state: ComplexArray,
+  targetRow: number,
+  inputSpan: { startRow: number; endRow: number },
+  numQubits: number,
+  controlMask: number = 0,
+  antiControlMask: number = 0
+): ComplexArray => {
+  const numStates = 1 << numQubits;
+  const targetBit = 1 << (numQubits - 1 - targetRow);
+  const inputSize = inputSpan.endRow - inputSpan.startRow + 1;
+  const inputMax = 1 << inputSize;
+
+  const result = createComplexArray(numStates);
+  const processed = new Set<number>();
+
+  for (let i = 0; i < numStates; i++) {
+    if (processed.has(i)) continue;
+
+    // Find the paired state (differs only in target qubit)
+    const j = i ^ targetBit;
+    processed.add(i);
+    processed.add(j);
+
+    const re0 = state[i * 2];
+    const im0 = state[i * 2 + 1];
+    const re1 = state[j * 2];
+    const im1 = state[j * 2 + 1];
+
+    // Determine which is |0⟩ and which is |1⟩ at target
+    const i0 = (i & targetBit) === 0 ? i : j;
+    const i1 = (i & targetBit) === 0 ? j : i;
+    const amp0Re = (i & targetBit) === 0 ? re0 : re1;
+    const amp0Im = (i & targetBit) === 0 ? im0 : im1;
+    const amp1Re = (i & targetBit) === 0 ? re1 : re0;
+    const amp1Im = (i & targetBit) === 0 ? im1 : im0;
+
+    // Check control conditions (use the base state without target qubit contribution)
+    const baseState = i0; // state where target is 0
+    if ((baseState & controlMask) !== controlMask || (baseState & antiControlMask) !== 0) {
+      result[i0 * 2] = amp0Re;
+      result[i0 * 2 + 1] = amp0Im;
+      result[i1 * 2] = amp1Re;
+      result[i1 * 2 + 1] = amp1Im;
+      continue;
+    }
+
+    // Read input value (same for both states in the pair - input register doesn't include target)
+    const inputValue = readRegisterValue(i0, inputSpan.startRow, inputSpan.endRow, numQubits);
+    const angle = (2 * Math.PI * inputValue) / inputMax;
+
+    // Rx(θ) matrix: [[cos(θ/2), -i×sin(θ/2)], [-i×sin(θ/2), cos(θ/2)]]
+    const halfAngle = angle / 2;
+    const c = Math.cos(halfAngle);
+    const s = Math.sin(halfAngle);
+
+    // Apply Rx matrix: |ψ'⟩ = Rx × |ψ⟩
+    // |0'⟩ = c×|0⟩ - i×s×|1⟩
+    // |1'⟩ = -i×s×|0⟩ + c×|1⟩
+    result[i0 * 2] = c * amp0Re + s * amp1Im;  // Real part of |0'⟩
+    result[i0 * 2 + 1] = c * amp0Im - s * amp1Re;  // Imag part of |0'⟩
+    result[i1 * 2] = s * amp0Im + c * amp1Re;  // Real part of |1'⟩
+    result[i1 * 2 + 1] = -s * amp0Re + c * amp1Im;  // Imag part of |1'⟩
+  }
+
+  return result;
+};
+
+/**
+ * Apply Y^A or Y^B gate: Y rotation by (A/2^n) or (B/2^n) full turns.
+ * Uses the formula Y^t = √X† × Z^t × √X, which simplifies to Ry(2πt).
+ * This mixes basis states, so we process pairs of states differing only in target qubit.
+ *
+ * @param state Current quantum state
+ * @param targetRow The row index of the target qubit
+ * @param inputSpan The row range of the input register
+ * @param numQubits Total number of qubits
+ * @param controlMask Bitmask for control conditions (optional)
+ * @param antiControlMask Bitmask for anti-control conditions (optional)
+ */
+export const applyInputParameterizedY = (
+  state: ComplexArray,
+  targetRow: number,
+  inputSpan: { startRow: number; endRow: number },
+  numQubits: number,
+  controlMask: number = 0,
+  antiControlMask: number = 0
+): ComplexArray => {
+  const numStates = 1 << numQubits;
+  const targetBit = 1 << (numQubits - 1 - targetRow);
+  const inputSize = inputSpan.endRow - inputSpan.startRow + 1;
+  const inputMax = 1 << inputSize;
+
+  const result = createComplexArray(numStates);
+  const processed = new Set<number>();
+
+  for (let i = 0; i < numStates; i++) {
+    if (processed.has(i)) continue;
+
+    // Find the paired state (differs only in target qubit)
+    const j = i ^ targetBit;
+    processed.add(i);
+    processed.add(j);
+
+    const re0 = state[i * 2];
+    const im0 = state[i * 2 + 1];
+    const re1 = state[j * 2];
+    const im1 = state[j * 2 + 1];
+
+    // Determine which is |0⟩ and which is |1⟩ at target
+    const i0 = (i & targetBit) === 0 ? i : j;
+    const i1 = (i & targetBit) === 0 ? j : i;
+    const amp0Re = (i & targetBit) === 0 ? re0 : re1;
+    const amp0Im = (i & targetBit) === 0 ? im0 : im1;
+    const amp1Re = (i & targetBit) === 0 ? re1 : re0;
+    const amp1Im = (i & targetBit) === 0 ? im1 : im0;
+
+    // Check control conditions
+    const baseState = i0;
+    if ((baseState & controlMask) !== controlMask || (baseState & antiControlMask) !== 0) {
+      result[i0 * 2] = amp0Re;
+      result[i0 * 2 + 1] = amp0Im;
+      result[i1 * 2] = amp1Re;
+      result[i1 * 2 + 1] = amp1Im;
+      continue;
+    }
+
+    // Read input value
+    const inputValue = readRegisterValue(i0, inputSpan.startRow, inputSpan.endRow, numQubits);
+    const angle = (2 * Math.PI * inputValue) / inputMax;
+
+    // Ry(θ) matrix: [[cos(θ/2), -sin(θ/2)], [sin(θ/2), cos(θ/2)]]
+    const halfAngle = angle / 2;
+    const c = Math.cos(halfAngle);
+    const s = Math.sin(halfAngle);
+
+    // Apply Ry matrix: |ψ'⟩ = Ry × |ψ⟩
+    // |0'⟩ = c×|0⟩ - s×|1⟩
+    // |1'⟩ = s×|0⟩ + c×|1⟩
+    result[i0 * 2] = c * amp0Re - s * amp1Re;
+    result[i0 * 2 + 1] = c * amp0Im - s * amp1Im;
+    result[i1 * 2] = s * amp0Re + c * amp1Re;
+    result[i1 * 2 + 1] = s * amp0Im + c * amp1Im;
+  }
+
+  return result;
+};
+
+/**
+ * Apply Phase Gradient gate: Applies Z^(k/2^n) to each basis state.
+ * This is the QFT phase rotation pattern over a register.
+ * For each basis state |k⟩ in the span, applies phase e^(i×2π×k/2^n).
+ *
+ * @param state Current quantum state
+ * @param startRow First qubit row of the span
+ * @param endRow Last qubit row of the span
+ * @param numQubits Total number of qubits
+ * @param controlMask Bitmask for control conditions (optional)
+ * @param antiControlMask Bitmask for anti-control conditions (optional)
+ */
+export const applyPhaseGradient = (
+  state: ComplexArray,
+  startRow: number,
+  endRow: number,
+  numQubits: number,
+  controlMask: number = 0,
+  antiControlMask: number = 0
+): ComplexArray => {
+  const numStates = 1 << numQubits;
+  const spanSize = endRow - startRow + 1;
+  const spanMax = 1 << spanSize;
+
+  const result = createComplexArray(numStates);
+
+  for (let i = 0; i < numStates; i++) {
+    const re = state[i * 2];
+    const im = state[i * 2 + 1];
+
+    // Check control conditions
+    if ((i & controlMask) !== controlMask || (i & antiControlMask) !== 0) {
+      result[i * 2] = re;
+      result[i * 2 + 1] = im;
+      continue;
+    }
+
+    // Read the value k from the span
+    const k = readRegisterValue(i, startRow, endRow, numQubits);
+
+    // Apply phase e^(i×2π×k/2^n)
+    const phase = (2 * Math.PI * k) / spanMax;
+    const cosP = Math.cos(phase);
+    const sinP = Math.sin(phase);
+
+    // Multiply amplitude by e^(i×phase) = cos(phase) + i×sin(phase)
+    result[i * 2] = re * cosP - im * sinP;
+    result[i * 2 + 1] = re * sinP + im * cosP;
+  }
+
+  return result;
+};
+
+// ============================================================================
+// QFT (Quantum Fourier Transform) Implementation
+// ============================================================================
+
+/**
+ * Build the QFT matrix for n qubits.
+ * QFT[j][k] = (1/√2^n) × e^(2πijk/2^n)
+ * @param n Number of qubits in the QFT span
+ * @returns 2^n × 2^n complex matrix
+ */
+export const buildQFTMatrix = (n: number): Complex[][] => {
+  const size = 1 << n; // 2^n
+  const normalization = 1 / Math.sqrt(size);
+  const matrix: Complex[][] = [];
+
+  for (let j = 0; j < size; j++) {
+    matrix[j] = [];
+    for (let k = 0; k < size; k++) {
+      // QFT[j][k] = (1/√2^n) × e^(2πijk/2^n)
+      const phase = (2 * Math.PI * j * k) / size;
+      matrix[j][k] = {
+        re: normalization * Math.cos(phase),
+        im: normalization * Math.sin(phase)
+      };
+    }
+  }
+  return matrix;
+};
+
+/**
+ * Build the inverse QFT (QFT†) matrix for n qubits.
+ * QFT†[j][k] = (1/√2^n) × e^(-2πijk/2^n)
+ * @param n Number of qubits in the QFT span
+ * @returns 2^n × 2^n complex matrix
+ */
+export const buildQFTDaggerMatrix = (n: number): Complex[][] => {
+  const size = 1 << n;
+  const normalization = 1 / Math.sqrt(size);
+  const matrix: Complex[][] = [];
+
+  for (let j = 0; j < size; j++) {
+    matrix[j] = [];
+    for (let k = 0; k < size; k++) {
+      const phase = -(2 * Math.PI * j * k) / size; // Negative phase for inverse
+      matrix[j][k] = {
+        re: normalization * Math.cos(phase),
+        im: normalization * Math.sin(phase)
+      };
+    }
+  }
+  return matrix;
+};
+
+/**
+ * Apply QFT or QFT† to a range of qubits.
+ * Transforms the quantum state using the QFT matrix on the specified span.
+ *
+ * @param state Current quantum state
+ * @param startRow First qubit row of the span
+ * @param endRow Last qubit row of the span
+ * @param numQubits Total number of qubits
+ * @param isDagger If true, apply inverse QFT (QFT†)
+ * @param controlMask Bitmask for control conditions (optional)
+ * @param antiControlMask Bitmask for anti-control conditions (optional)
+ */
+export const applyQFT = (
+  state: ComplexArray,
+  startRow: number,
+  endRow: number,
+  numQubits: number,
+  isDagger: boolean = false,
+  controlMask: number = 0,
+  antiControlMask: number = 0
+): ComplexArray => {
+  const spanSize = endRow - startRow + 1;
+  const spanStates = 1 << spanSize;
+  const totalStates = 1 << numQubits;
+
+  // Build the QFT matrix for this span size
+  const qftMatrix = isDagger ? buildQFTDaggerMatrix(spanSize) : buildQFTMatrix(spanSize);
+
+  const result = createComplexArray(totalStates);
+
+  // For each group of states that differ only in the span bits
+  const nonSpanStates = totalStates / spanStates;
+
+  for (let nonSpanIdx = 0; nonSpanIdx < nonSpanStates; nonSpanIdx++) {
+    // Construct the basis state index without the span bits
+    // We need to map nonSpanIdx back to the non-span bit positions
+
+    // Create array to hold amplitudes for this group
+    const inputAmps: Complex[] = new Array(spanStates);
+    const outputAmps: Complex[] = new Array(spanStates);
+
+    // Initialize output amplitudes
+    for (let k = 0; k < spanStates; k++) {
+      outputAmps[k] = { re: 0, im: 0 };
+    }
+
+    // Collect input amplitudes and check controls
+    let controlsOk = true;
+    for (let spanVal = 0; spanVal < spanStates; spanVal++) {
+      // Construct full state index
+      const fullIdx = buildStateIndex(nonSpanIdx, spanVal, startRow, endRow, numQubits);
+
+      // Check control conditions (only need to check once per group since controls are outside span)
+      if (spanVal === 0) {
+        if ((fullIdx & controlMask) !== controlMask || (fullIdx & antiControlMask) !== 0) {
+          controlsOk = false;
+        }
+      }
+
+      inputAmps[spanVal] = {
+        re: state[fullIdx * 2],
+        im: state[fullIdx * 2 + 1]
+      };
+    }
+
+    if (!controlsOk) {
+      // Copy input to output unchanged
+      for (let spanVal = 0; spanVal < spanStates; spanVal++) {
+        const fullIdx = buildStateIndex(nonSpanIdx, spanVal, startRow, endRow, numQubits);
+        result[fullIdx * 2] = inputAmps[spanVal].re;
+        result[fullIdx * 2 + 1] = inputAmps[spanVal].im;
+      }
+      continue;
+    }
+
+    // Apply QFT matrix multiplication
+    for (let j = 0; j < spanStates; j++) {
+      for (let k = 0; k < spanStates; k++) {
+        // outputAmps[j] += qftMatrix[j][k] * inputAmps[k]
+        const mRe = qftMatrix[j][k].re;
+        const mIm = qftMatrix[j][k].im;
+        const aRe = inputAmps[k].re;
+        const aIm = inputAmps[k].im;
+        outputAmps[j].re += mRe * aRe - mIm * aIm;
+        outputAmps[j].im += mRe * aIm + mIm * aRe;
+      }
+    }
+
+    // Write output amplitudes back to result
+    for (let spanVal = 0; spanVal < spanStates; spanVal++) {
+      const fullIdx = buildStateIndex(nonSpanIdx, spanVal, startRow, endRow, numQubits);
+      result[fullIdx * 2] = outputAmps[spanVal].re;
+      result[fullIdx * 2 + 1] = outputAmps[spanVal].im;
+    }
+  }
+
+  return result;
+};
+
+/**
+ * Helper: Build a full state index from non-span and span parts.
+ * The span bits occupy positions [startRow, endRow] in the qubit ordering.
+ */
+const buildStateIndex = (
+  nonSpanIdx: number,
+  spanVal: number,
+  startRow: number,
+  endRow: number,
+  numQubits: number
+): number => {
+  const spanSize = endRow - startRow + 1;
+  let result = 0;
+  let nonSpanBit = 0;
+  let spanBit = 0;
+
+  for (let qubit = 0; qubit < numQubits; qubit++) {
+    const bitPos = numQubits - 1 - qubit; // MSB is qubit 0
+    if (qubit >= startRow && qubit <= endRow) {
+      // This bit comes from spanVal
+      const spanBitPos = qubit - startRow;
+      const bit = (spanVal >> (spanSize - 1 - spanBitPos)) & 1;
+      result |= bit << bitPos;
+      spanBit++;
+    } else {
+      // This bit comes from nonSpanIdx
+      // Count how many non-span qubits we've processed
+      const nonSpanCount = qubit < startRow ? qubit : qubit - spanSize;
+      const totalNonSpan = numQubits - spanSize;
+      const nonSpanBitPos = totalNonSpan - 1 - nonSpanCount;
+      if (nonSpanBitPos >= 0) {
+        const bit = (nonSpanIdx >> nonSpanBitPos) & 1;
+        result |= bit << bitPos;
+      }
+      nonSpanBit++;
+    }
+  }
+
+  return result;
+};
+
 /**
  * Get the matrix for a gate, computing it dynamically for parameterized gates.
  * Fixed gates are memoized for performance.
+ * @param gateType The type of gate
+ * @param params Optional gate parameters (angle, custom matrix, etc.)
+ * @param timeParameter Optional time parameter for time-parameterized gates (0 to 1)
  */
-export const getGateMatrix = (gateType: GateType, params?: GateParams): Complex[][] => {
+export const getGateMatrix = (gateType: GateType, params?: GateParams, timeParameter?: number): Complex[][] => {
+  // Handle time-parameterized gates (cannot cache, depend on time)
+  if (isTimeParameterizedGate(gateType)) {
+    const t = timeParameter ?? 0;
+    switch (gateType) {
+      case GateType.ZT:
+        return getZtMatrix(t);
+      case GateType.XT:
+        return getXtMatrix(t);
+      case GateType.YT:
+        return getYtMatrix(t);
+      default:
+        // Exhaustive check
+        return assertNever(gateType);
+    }
+  }
+
+  // Handle exponential gates (cannot cache, depend on time)
+  if (isExponentialGate(gateType)) {
+    const t = timeParameter ?? 0;
+    switch (gateType) {
+      case GateType.EXP_Z:
+        return getExpZMatrix(t);
+      case GateType.EXP_X:
+        return getExpXMatrix(t);
+      case GateType.EXP_Y:
+        return getExpYMatrix(t);
+      default:
+        return assertNever(gateType);
+    }
+  }
+
   // Handle parameterized rotation gates (cannot cache, depend on params)
   if (isParameterizedGate(gateType)) {
     const angle = params?.angle ?? 0;
@@ -964,6 +1567,8 @@ interface SimulateColumnOptions {
   processAdvancedGates: boolean;
   /** Array to collect warnings. If null, warnings are not collected */
   warnings: SimulationWarning[] | null;
+  /** Time parameter for time-parameterized gates (0 to 1). Defaults to 0 */
+  timeParameter?: number;
 }
 
 /** Result of simulating a single column */
@@ -1054,7 +1659,7 @@ const simulateColumn = (
   col: number,
   options: SimulateColumnOptions
 ): SimulateColumnResult => {
-  const { numQubits, columnIndex, rowMapping, processAdvancedGates, warnings } = options;
+  const { numQubits, columnIndex, rowMapping, processAdvancedGates, warnings, timeParameter } = options;
   const numRows = grid.length;
 
   // Collections for identified gates
@@ -1071,9 +1676,12 @@ const simulateColumn = (
 
   // Advanced gate collections (only used when processAdvancedGates=true)
   const reverseGates: { startRow: number; endRow: number }[] = [];
+  const phaseGradientGates: { startRow: number; endRow: number }[] = [];
+  const qftGates: { startRow: number; endRow: number; isDagger: boolean }[] = [];
   const arithmeticOps: { startRow: number; endRow: number; gateType: ArithmeticFixed2x1Gate; originalRow: number }[] = [];
   const comparisonOps: { row: number; gateType: ArithmeticComparisonGate; originalRow: number }[] = [];
   const scalarOps: { row: number; gateType: ArithmeticScalarGate }[] = [];
+  const inputParamOps: { row: number; gateType: GateType; originalRow: number }[] = [];
   let inputASpan: { startRow: number; endRow: number } | null = null;
   let inputBSpan: { startRow: number; endRow: number } | null = null;
   let inputRSpan: { startRow: number; endRow: number } | null = null;
@@ -1125,6 +1733,28 @@ const simulateColumn = (
             reverseGates.push({ startRow: filteredStart, endRow: filteredEnd });
           }
         }
+      } else if (type === GateType.PHASE_GRADIENT && !cell.params?.isSpanContinuation) {
+        const span = cell.params?.reverseSpan;
+        if (span && rowMapping) {
+          const filteredStart = rowMapping.get(span.startRow);
+          const filteredEnd = rowMapping.get(span.endRow);
+          if (filteredStart !== undefined && filteredEnd !== undefined) {
+            phaseGradientGates.push({ startRow: filteredStart, endRow: filteredEnd });
+          }
+        }
+      } else if (isQFTGate(type) && !cell.params?.isSpanContinuation) {
+        const span = cell.params?.reverseSpan;
+        if (span && rowMapping) {
+          const filteredStart = rowMapping.get(span.startRow);
+          const filteredEnd = rowMapping.get(span.endRow);
+          if (filteredStart !== undefined && filteredEnd !== undefined) {
+            qftGates.push({
+              startRow: filteredStart,
+              endRow: filteredEnd,
+              isDagger: type === GateType.QFT_DG
+            });
+          }
+        }
       } else if (type === GateType.INPUT_A && !cell.params?.isSpanContinuation) {
         const span = cell.params?.reverseSpan;
         if (span && rowMapping) {
@@ -1165,7 +1795,9 @@ const simulateColumn = (
         comparisonOps.push({ row: filteredRow, gateType: type, originalRow });
       } else if (isArithmeticScalarGate(type)) {
         scalarOps.push({ row: filteredRow, gateType: type });
-      } else if (!isArithmeticInputGate(type) && !isArithmeticFixed2x1Gate(type) && type !== GateType.REVERSE) {
+      } else if (isInputParameterizedGate(type)) {
+        inputParamOps.push({ row: filteredRow, gateType: type, originalRow });
+      } else if (!isArithmeticInputGate(type) && !isArithmeticFixed2x1Gate(type) && type !== GateType.REVERSE && type !== GateType.PHASE_GRADIENT && !isQFTGate(type)) {
         operations.push({ row: filteredRow, type, params: cell.params });
       }
     } else {
@@ -1203,7 +1835,7 @@ const simulateColumn = (
 
   // Apply standard gates
   for (const op of operations) {
-    nextState = applyGateWithAntiControl(nextState, op.type, op.row, controlMask, antiControlMask, numQubits, op.params);
+    nextState = applyGateWithAntiControl(nextState, op.type, op.row, controlMask, antiControlMask, numQubits, op.params, timeParameter);
   }
 
   // Apply advanced gates (when enabled)
@@ -1211,6 +1843,31 @@ const simulateColumn = (
     // REVERSE gates
     for (const rev of reverseGates) {
       nextState = applyBitReversePermutation(nextState, rev.startRow, rev.endRow, numQubits);
+    }
+
+    // Phase Gradient gates
+    for (const pg of phaseGradientGates) {
+      nextState = applyPhaseGradient(
+        nextState,
+        pg.startRow,
+        pg.endRow,
+        numQubits,
+        controlMask,
+        antiControlMask
+      );
+    }
+
+    // QFT gates
+    for (const qft of qftGates) {
+      nextState = applyQFT(
+        nextState,
+        qft.startRow,
+        qft.endRow,
+        numQubits,
+        qft.isDagger,
+        controlMask,
+        antiControlMask
+      );
     }
 
     // Arithmetic gates with warning collection
@@ -1314,6 +1971,64 @@ const simulateColumn = (
         numQubits
       );
     }
+
+    // Input-parameterized gates (Z^A, X^A, Y^A, Z^B, X^B, Y^B)
+    for (const inputParamOp of inputParamOps) {
+      // Determine which input span to use
+      const usesA = isInputParameterizedGateA(inputParamOp.gateType);
+      const inputSpan = usesA ? inputASpan : inputBSpan;
+      const inputType = usesA ? 'INPUT_A' : 'INPUT_B';
+
+      if (!inputSpan) {
+        if (warnings) {
+          warnings.push({
+            column: columnIndex,
+            row: inputParamOp.originalRow,
+            gateType: inputParamOp.gateType,
+            message: `${inputParamOp.gateType} gate requires ${inputType} marker in the same column`,
+            category: 'missing_input'
+          });
+        }
+        continue;
+      }
+
+      // Apply the appropriate gate
+      switch (inputParamOp.gateType) {
+        case GateType.ZA:
+        case GateType.ZB:
+          nextState = applyInputParameterizedZ(
+            nextState,
+            inputParamOp.row,
+            inputSpan,
+            numQubits,
+            controlMask,
+            antiControlMask
+          );
+          break;
+        case GateType.XA:
+        case GateType.XB:
+          nextState = applyInputParameterizedX(
+            nextState,
+            inputParamOp.row,
+            inputSpan,
+            numQubits,
+            controlMask,
+            antiControlMask
+          );
+          break;
+        case GateType.YA:
+        case GateType.YB:
+          nextState = applyInputParameterizedY(
+            nextState,
+            inputParamOp.row,
+            inputSpan,
+            numQubits,
+            controlMask,
+            antiControlMask
+          );
+          break;
+      }
+    }
   }
 
   // Undo basis transformations
@@ -1369,9 +2084,10 @@ const applyGate = (
     row: number,
     controlMask: number,
     numQubits: number,
-    params?: GateParams
+    params?: GateParams,
+    timeParameter?: number
 ): ComplexArray => {
-    const matrix = getGateMatrix(gateType, params);
+    const matrix = getGateMatrix(gateType, params, timeParameter);
     const len = complexLength(state);
     const newState = createComplexArray(len);
     const bit = numQubits - 1 - row;
@@ -1595,9 +2311,10 @@ const applyGateWithAntiControl = (
   controlMask: number,
   antiControlMask: number,
   numQubits: number,
-  params?: GateParams
+  params?: GateParams,
+  timeParameter?: number
 ): ComplexArray => {
-  const matrix = getGateMatrix(gateType, params);
+  const matrix = getGateMatrix(gateType, params, timeParameter);
   const len = complexLength(state);
   const newState = createComplexArray(len);
   const bit = numQubits - 1 - row;
@@ -1679,7 +2396,15 @@ export const getBlochVector = (state: Complex[] | ComplexArray, targetQubit: num
     }
   }
 
-  return [expX, expY, expZ];
+  // Clamp to [-1, 1] to handle floating point errors
+  // Also snap very small values to 0 for numerical stability
+  const SNAP_THRESHOLD = 1e-10;
+  const clampAndSnap = (v: number): number => {
+    if (Math.abs(v) < SNAP_THRESHOLD) return 0;
+    return Math.max(-1, Math.min(1, v));
+  };
+
+  return [clampAndSnap(expX), clampAndSnap(expY), clampAndSnap(expZ)];
 };
 
 // --- Measurement Logic ---
@@ -1695,7 +2420,8 @@ export const getBlochVector = (state: Complex[] | ComplexArray, targetQubit: num
 export const measureQubit = (
   state: Complex[] | ComplexArray,
   qubit: number,
-  numQubits: number
+  numQubits: number,
+  randomFn: () => number = Math.random
 ): { result: 0 | 1; probability: number; collapsedState: ComplexArray } => {
   // Convert Complex[] to ComplexArray if needed
   const stateArray: ComplexArray = Array.isArray(state) ? fromComplexObjectArray(state) : state;
@@ -1714,7 +2440,7 @@ export const measureQubit = (
   }
 
   // Generate random number and determine result
-  const r = Math.random();
+  const r = randomFn();
   const result: 0 | 1 = r <= prob0 ? 0 : 1;
   const measuredProb = result === 0 ? prob0 : 1 - prob0;
 
@@ -1753,13 +2479,37 @@ export interface CircuitSimulationResult {
 }
 
 /**
+ * Simple seeded random number generator (mulberry32)
+ * Returns a function that generates random numbers in [0, 1)
+ */
+const createSeededRandom = (seed: number): (() => number) => {
+  let state = seed;
+  return () => {
+    state = (state + 0x6D2B79F5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+/**
  * Run the circuit with actual measurements.
  * This is used for the "Run" workflow and performs real measurements.
  * Unpopulated wires (rows with no gates) are filtered out before simulation.
+ *
+ * @param grid The circuit grid
+ * @param timeParameter Optional time parameter for animated gates
+ * @param measurementSeed Optional seed for reproducible measurements (for animation stability)
  */
 export const runCircuitWithMeasurements = (
-  grid: CircuitGrid
+  grid: CircuitGrid,
+  timeParameter?: number,
+  measurementSeed?: number
 ): CircuitSimulationResult => {
+  // Use seeded random if seed provided, otherwise use Math.random
+  const random = measurementSeed !== undefined
+    ? createSeededRandom(measurementSeed)
+    : Math.random.bind(Math);
   const numRows = grid.length;
   const numCols = grid[0]?.length || 0;
   const warnings: SimulationWarning[] = [];
@@ -1820,14 +2570,16 @@ export const runCircuitWithMeasurements = (
       columnIndex: col,
       rowMapping: rowToFiltered,
       processAdvancedGates: true,
-      warnings
+      warnings,
+      timeParameter
     });
     currentState = result.state;
 
     // Perform measurements (collapse the state)
+    // Use seeded random for reproducible results during animation
     for (let i = 0; i < result.measureRows.length; i++) {
       const { result: mResult, probability, collapsedState } = measureQubit(
-        currentState, result.measureRows[i], numFilteredRows
+        currentState, result.measureRows[i], numFilteredRows, random
       );
       measurements.push({ qubit: result.measureOriginalRows[i], result: mResult, probability });
       currentState = collapsedState;

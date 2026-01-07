@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Undo2, Redo2 } from 'lucide-react';
 import {
   GateType,
@@ -8,6 +8,8 @@ import {
   CustomGateDefinition,
   isValidGateType,
   isParameterizedGate,
+  isTimeParameterizedGate,
+  isExponentialGate,
   isControlGate,
   isAllFixed2x1Gate,
   isArithmeticInputGate,
@@ -81,6 +83,15 @@ const App: React.FC = () => {
   const [activeColumns, setActiveColumns] = useState<number[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
 
+  // Time-parameterized gates animation state
+  const [timeParameter, setTimeParameter] = useState(0);
+  const [isFrozen, setIsFrozen] = useState(false);
+  const animationRef = useRef<number | null>(null);
+
+  // Cache measurement seeds to prevent random oscillation during time animation
+  // The seed changes only when the grid changes, not on every animation frame
+  const measurementSeedRef = useRef<number>(Date.now());
+
   // Validation state
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
 
@@ -135,6 +146,82 @@ const App: React.FC = () => {
     isSelected,
   } = useSelection(MAX_ROWS, grid[0]?.length ?? INITIAL_COLS);
 
+  // Check if circuit has any time-parameterized or exponential gates
+  const hasTimeGates = useMemo(() => {
+    for (const row of grid) {
+      for (const cell of row) {
+        if (cell.gate && (isTimeParameterizedGate(cell.gate) || isExponentialGate(cell.gate))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }, [grid]);
+
+  // Auto-disable step mode when time gates are present
+  useEffect(() => {
+    if (hasTimeGates && stepMode) {
+      setStepMode(false);
+      setIsPlaying(false);
+    }
+  }, [hasTimeGates, stepMode]);
+
+  // Time animation loop - runs continuously when time gates are present and not frozen
+  useEffect(() => {
+    if (!hasTimeGates) {
+      // No time gates - stop animation and reset
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+      setTimeParameter(0);
+      return;
+    }
+
+    if (isFrozen) {
+      // Frozen - stop animation but keep current t value
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+      return;
+    }
+
+    // Start animation loop when time gates exist and not frozen
+    let lastTime = performance.now();
+    const CYCLE_DURATION_MS = 3000; // 3 seconds for full 0→1 cycle
+
+    const animate = (currentTime: number) => {
+      const deltaTime = currentTime - lastTime;
+      lastTime = currentTime;
+
+      // Skip if deltaTime is negative or too large (tab switch, etc.)
+      if (deltaTime < 0 || deltaTime > 500) {
+        animationRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
+      setTimeParameter(prev => {
+        const newT = prev + deltaTime / CYCLE_DURATION_MS;
+        // Clamp to [0, 1) and handle wrap-around
+        if (newT >= 1) return newT % 1;
+        if (newT < 0) return 0;
+        return newT;
+      });
+
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+    };
+  }, [hasTimeGates, isFrozen]);
+
   // Hover handlers for InfoBox
   const handleGateHover = useCallback((gate: GateType | null, params?: GateParams) => {
     if (gate) {
@@ -165,25 +252,51 @@ const App: React.FC = () => {
   }, [grid]);
 
   // Auto-run circuit with 100ms debounce whenever grid changes and circuit is valid
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      // Only run if circuit is valid (no validation errors)
-      const errors = validateCircuit(grid);
-      if (errors.length === 0) {
-        const result = runCircuitWithMeasurements(grid);
-        setFinalState(result.finalState);
-        setMeasurements(result.measurements);
-        setPopulatedRows(result.populatedRows);
-        setStateHistory(result.stateHistory);
-        setActiveColumns(result.activeColumns);
-        setHasRun(true);
-        // Reset step index if it exceeds new history length
-        setStepIndex(prev => Math.min(prev, result.stateHistory.length - 1));
-      }
-    }, 100);
+  const lastGridRef = useRef<string>('');
 
-    return () => clearTimeout(timeoutId);
-  }, [grid]);
+  useEffect(() => {
+    // For grid changes, use debounce
+    const gridKey = JSON.stringify(grid.map(row => row.map(cell => cell.gate)));
+    if (gridKey !== lastGridRef.current) {
+      lastGridRef.current = gridKey;
+      // Generate new measurement seed when grid changes
+      measurementSeedRef.current = Date.now();
+      const timeoutId = setTimeout(() => {
+        // Only run if circuit is valid (no validation errors)
+        const errors = validateCircuit(grid);
+        if (errors.length === 0) {
+          const result = runCircuitWithMeasurements(grid, timeParameter, measurementSeedRef.current);
+          setFinalState(result.finalState);
+          setMeasurements(result.measurements);
+          setPopulatedRows(result.populatedRows);
+          setStateHistory(result.stateHistory);
+          setActiveColumns(result.activeColumns);
+          setHasRun(true);
+          // Reset step index if it exceeds new history length
+          setStepIndex(prev => Math.min(prev, result.stateHistory.length - 1));
+        }
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [grid, timeParameter]);
+
+  // Separate effect for time parameter updates (no debounce when animating)
+  // Uses cached measurement seed for stable results during animation
+  useEffect(() => {
+    if (!hasTimeGates) return;
+
+    const errors = validateCircuit(grid);
+    if (errors.length === 0) {
+      // Use the cached seed so measurements don't change randomly during animation
+      const result = runCircuitWithMeasurements(grid, timeParameter, measurementSeedRef.current);
+      setFinalState(result.finalState);
+      setMeasurements(result.measurements);
+      setPopulatedRows(result.populatedRows);
+      setStateHistory(result.stateHistory);
+      setActiveColumns(result.activeColumns);
+      setHasRun(true);
+    }
+  }, [timeParameter, hasTimeGates]);
 
   // Calculate display column count: max(rightmost populated column + 1, INITIAL_COLS)
   // After auto-run, wires shorten to rightmost populated column
@@ -225,6 +338,9 @@ const App: React.FC = () => {
 
   // Step mode handlers
   const handleStepModeToggle = useCallback(() => {
+    // Cannot enable step mode if time gates are present or frozen
+    if (hasTimeGates || isFrozen) return;
+
     setStepMode(prev => {
       if (prev) {
         // Turning off step mode - stop playing
@@ -235,7 +351,7 @@ const App: React.FC = () => {
       }
       return !prev;
     });
-  }, [stateHistory.length]);
+  }, [hasTimeGates, isFrozen]);
 
   const handleStepChange = useCallback((step: number) => {
     setStepIndex(Math.max(0, Math.min(step, stateHistory.length - 1)));
@@ -259,7 +375,7 @@ const App: React.FC = () => {
     });
   }, [stepIndex, stateHistory.length]);
 
-  // Auto-play effect
+  // Auto-play effect for step mode
   useEffect(() => {
     if (!isPlaying || !stepMode) return;
 
@@ -820,6 +936,22 @@ const App: React.FC = () => {
         hoverBgClass: 'bg-blue-600',
       };
     }
+    // Purple - QFT gates
+    if (gateType === GateType.QFT || gateType === GateType.QFT_DG) {
+      return {
+        borderClass: 'border-purple-500',
+        textClass: 'text-purple-400',
+        hoverBgClass: 'bg-purple-500',
+      };
+    }
+    // Phase Gradient - yellow
+    if (gateType === GateType.PHASE_GRADIENT) {
+      return {
+        borderClass: 'border-yellow-400',
+        textClass: 'text-yellow-400',
+        hoverBgClass: 'bg-yellow-400',
+      };
+    }
     // Default (REVERSE) - yellow
     return {
       borderClass: 'border-yellow-400',
@@ -1046,10 +1178,18 @@ const App: React.FC = () => {
             <h1 className="font-bold text-4xl tracking-tight">Qbit Weaver</h1>
           </div>
 
-          {/* Freeze Button */}
+          {/* Freeze Button - freezes t animation */}
           <button
-            className="flex items-center gap-2 px-4 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors text-base font-bold uppercase"
-            title="Freeze circuit"
+            onClick={() => setIsFrozen(prev => !prev)}
+            disabled={stepMode || !hasTimeGates}
+            className={`flex items-center gap-2 px-4 py-2 border-2 transition-colors text-base font-bold uppercase ${
+              isFrozen
+                ? 'bg-blue-600 border-blue-600 text-white'
+                : stepMode || !hasTimeGates
+                  ? 'border-white/30 text-white/30 cursor-not-allowed'
+                  : 'border-white hover:bg-white hover:text-black'
+            }`}
+            title={stepMode ? 'Freeze unavailable in step mode' : !hasTimeGates ? 'No time-parameterized gates in circuit' : 'Freeze/unfreeze time parameter animation'}
           >
             <span>Freeze</span>
           </button>
@@ -1057,20 +1197,29 @@ const App: React.FC = () => {
           {/* Step Mode Toggle */}
           <button
             onClick={handleStepModeToggle}
-            disabled={!hasRun || stateHistory.length <= 1}
+            disabled={hasTimeGates || isFrozen || !hasRun || stateHistory.length <= 1}
             className={`flex items-center gap-2 px-4 py-2 border-2 transition-colors text-base font-bold uppercase ${
               stepMode
                 ? 'bg-emerald-600 border-emerald-600 text-white'
-                : hasRun && stateHistory.length > 1
-                  ? 'border-white hover:bg-white hover:text-black'
-                  : 'border-white/30 text-white/30 cursor-not-allowed'
+                : hasTimeGates || isFrozen
+                  ? 'border-white/30 text-white/30 cursor-not-allowed'
+                  : hasRun && stateHistory.length > 1
+                    ? 'border-white hover:bg-white hover:text-black'
+                    : 'border-white/30 text-white/30 cursor-not-allowed'
             }`}
-            title="Toggle step-through simulation mode"
+            title={hasTimeGates ? 'Step mode unavailable with time-parameterized gates' : isFrozen ? 'Unfreeze to enable step mode' : 'Toggle step-through simulation mode'}
           >
             <span>Step Mode</span>
           </button>
 
-          {/* Simulation Timeline - inline when step mode is active */}
+          {/* Time Parameter Display - shows when time gates exist */}
+          {hasTimeGates && (
+            <span className={`text-base font-bold uppercase ${isFrozen ? 'text-blue-400' : 'text-white'}`}>
+              t = {timeParameter.toFixed(2)}
+            </span>
+          )}
+
+          {/* Simulation Timeline - visible when step mode is active */}
           {stepMode && hasRun && stateHistory.length > 1 && (
             <SimulationTimeline
               totalSteps={stateHistory.length - 1}
@@ -1174,7 +1323,11 @@ const App: React.FC = () => {
                   const [bx, by, bz] = (hasRun && displayState && isPopulated)
                     ? getBlochVector(displayState, filteredIdx, populatedRows.length)
                     : [0, 0, 1];
-                  const prob1Pct = hasRun ? ((1 - bz) / 2 * 100).toFixed(0) : '0';
+                  // Clamp bz to [-1, 1] to handle floating point errors
+                  const bzClamped = Math.max(-1, Math.min(1, bz));
+                  const prob1Raw = hasRun ? ((1 - bzClamped) / 2 * 100) : 0;
+                  const prob1Rounded = Math.round(prob1Raw);
+                  const prob1Pct = (prob1Rounded <= 0) ? '0' : prob1Rounded.toString();
 
                   return (
                     <div key={`row-${rIdx}`} className="flex items-center group relative" style={{ height: ROW_HEIGHT }}>
