@@ -230,8 +230,8 @@ const App: React.FC = () => {
         // Turning off step mode - stop playing
         setIsPlaying(false);
       } else {
-        // Turning on step mode - go to end (show final state)
-        setStepIndex(stateHistory.length - 1);
+        // Turning on step mode - start at initial state
+        setStepIndex(0);
       }
       return !prev;
     });
@@ -1039,22 +1039,20 @@ const App: React.FC = () => {
     <div className="flex flex-col h-screen w-screen bg-black text-white overflow-hidden font-mono font-bold">
 
       {/* Header Bar */}
-      <header className="h-14 border-b-2 border-white bg-black flex items-center px-4 justify-between shrink-0 z-20">
-        <div className="flex items-center gap-4">
+      <header className="h-16 border-b-2 border-white bg-black flex items-center px-6 justify-between shrink-0 z-20">
+        <div className="flex items-center gap-6">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <h1 className="font-bold text-lg tracking-tight uppercase">QCVO</h1>
+            <h1 className="font-bold text-2xl tracking-tight uppercase">QCVO</h1>
           </div>
-        </div>
 
-        <div className="flex items-center gap-4">
           {/* Step Mode Toggle */}
           <button
             onClick={handleStepModeToggle}
             disabled={!hasRun || stateHistory.length <= 1}
-            className={`flex items-center gap-2 px-3 py-1.5 border-2 transition-colors text-sm font-bold uppercase ${
+            className={`flex items-center gap-2 px-4 py-2 border-2 transition-colors text-base font-bold uppercase ${
               stepMode
-                ? 'bg-cyan-600 border-cyan-600 text-white'
+                ? 'bg-emerald-600 border-emerald-600 text-white'
                 : hasRun && stateHistory.length > 1
                   ? 'border-white hover:bg-white hover:text-black'
                   : 'border-white/30 text-white/30 cursor-not-allowed'
@@ -1064,18 +1062,34 @@ const App: React.FC = () => {
             <span>Step Mode</span>
           </button>
 
+          {/* Simulation Timeline - inline when step mode is active */}
+          {stepMode && hasRun && stateHistory.length > 1 && (
+            <SimulationTimeline
+              totalSteps={stateHistory.length - 1}
+              currentStep={stepIndex}
+              onStepChange={handleStepChange}
+              isPlaying={isPlaying}
+              onPlayPause={handlePlayPause}
+              onStepForward={handleStepForward}
+              onStepBack={handleStepBack}
+              activeColumns={activeColumns}
+            />
+          )}
+        </div>
+
+        <div className="flex items-center gap-4">
           {/* Undo Button */}
           <button
             onClick={undo}
             disabled={!canUndo}
-            className={`flex items-center gap-1 px-3 py-1.5 border-2 transition-colors text-sm font-bold uppercase ${
+            className={`flex items-center gap-2 px-4 py-2 border-2 transition-colors text-base font-bold uppercase ${
               canUndo
                 ? 'border-white hover:bg-white hover:text-black'
                 : 'border-white/30 text-white/30 cursor-not-allowed'
             }`}
             title="Undo (Ctrl+Z)"
           >
-            <Undo2 size={16} />
+            <Undo2 size={20} />
             <span>Undo</span>
           </button>
 
@@ -1083,21 +1097,21 @@ const App: React.FC = () => {
           <button
             onClick={redo}
             disabled={!canRedo}
-            className={`flex items-center gap-1 px-3 py-1.5 border-2 transition-colors text-sm font-bold uppercase ${
+            className={`flex items-center gap-2 px-4 py-2 border-2 transition-colors text-base font-bold uppercase ${
               canRedo
                 ? 'border-white hover:bg-white hover:text-black'
                 : 'border-white/30 text-white/30 cursor-not-allowed'
             }`}
             title="Redo (Ctrl+Shift+Z)"
           >
-            <Redo2 size={16} />
+            <Redo2 size={20} />
             <span>Redo</span>
           </button>
 
           {/* Clear Button - rightmost */}
           <button
             onClick={handleClear}
-            className="flex items-center gap-2 px-4 py-1.5 border-2 border-white hover:bg-red-600 hover:border-red-600 hover:text-white transition-colors text-sm font-bold uppercase"
+            className="flex items-center gap-2 px-5 py-2 border-2 border-white hover:bg-red-600 hover:border-red-600 hover:text-white transition-colors text-base font-bold uppercase"
           >
             <span>Clear</span>
           </button>
@@ -1222,7 +1236,7 @@ const App: React.FC = () => {
                                     : ''
                                 } ${
                                   isStepColumn
-                                    ? 'bg-cyan-500/20 border-l-2 border-r-2 border-l-cyan-400 border-r-cyan-400'
+                                    ? 'bg-emerald-500/30'
                                     : isInTemplateArea
                                       ? (isTemplateInvalid
                                           ? 'bg-red-500/30'
@@ -1435,20 +1449,6 @@ const App: React.FC = () => {
 
             </div>
           </section>
-
-          {/* Simulation Timeline - shows when step mode is active */}
-          {stepMode && hasRun && stateHistory.length > 1 && (
-            <SimulationTimeline
-              totalSteps={stateHistory.length - 1}
-              currentStep={stepIndex}
-              onStepChange={handleStepChange}
-              isPlaying={isPlaying}
-              onPlayPause={handlePlayPause}
-              onStepForward={handleStepForward}
-              onStepBack={handleStepBack}
-              activeColumns={activeColumns}
-            />
-          )}
 
           {/* Gate Library - Bottom of left column */}
           <GateLibrary
