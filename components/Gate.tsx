@@ -39,7 +39,8 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
     }
   };
 
-  const baseClasses = "w-10 h-10 flex items-center justify-center text-base font-bold cursor-grab active:cursor-grabbing select-none z-20 relative";
+  // When in gate library, parent row handles dragging; otherwise gate handles it
+  const baseClasses = `w-10 h-10 flex items-center justify-center text-base font-bold select-none z-20 relative ${!isGateLibrary ? 'cursor-grab active:cursor-grabbing' : ''}`;
   const errorBgClass = hasError ? "!bg-red-600" : "";
 
   // Custom Styles per Gate Type
@@ -450,11 +451,37 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
           specificStyles = `${inputMarkerBase} border-amber-500`;
       }
   }
+  // ============================================================================
+  // VISUALIZATION GATES - Emerald (Bloch sphere, percentage)
+  // ============================================================================
+  else if (type === GateType.BLOCH_VIS) {
+      // Mini Bloch sphere icon
+      content = (
+        <div className="relative w-6 h-6">
+          <svg width="24" height="24" viewBox="0 0 24 24">
+            {/* Sphere outline */}
+            <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-emerald-400" />
+            {/* Equator ellipse */}
+            <ellipse cx="12" cy="12" rx="9" ry="3" fill="none" stroke="currentColor" strokeWidth="0.75" className="text-emerald-400/50" />
+            {/* Vertical axis */}
+            <line x1="12" y1="3" x2="12" y2="21" stroke="currentColor" strokeWidth="0.75" className="text-emerald-400/50" />
+            {/* State vector arrow pointing up */}
+            <line x1="12" y1="12" x2="12" y2="5" stroke="currentColor" strokeWidth="1.5" className="text-emerald-400" />
+            <polygon points="12,3 10,6 14,6" fill="currentColor" className="text-emerald-400" />
+          </svg>
+        </div>
+      );
+      specificStyles = "bg-black border-2 border-emerald-500 text-emerald-400";
+  }
+  else if (type === GateType.PERCENT_VIS) {
+      content = <span className="text-base font-bold">%</span>;
+      specificStyles = "bg-black border-2 border-emerald-500 text-emerald-400";
+  }
 
   return (
     <div
-      draggable
-      onDragStart={handleDragStart}
+      draggable={!isGateLibrary}
+      onDragStart={!isGateLibrary ? handleDragStart : undefined}
       onMouseEnter={() => onHover(type, params)}
       onMouseLeave={() => onHover(null)}
       className={`${baseClasses} ${specificStyles} ${errorBgClass} group`}

@@ -820,6 +820,25 @@ export const GATE_DEFS: Partial<Record<GateType, GateDef>> = {
     matrixLabel: 'I',
     qubits: -1,
     matrix: [[ONE, ZERO], [ZERO, ONE]]
+  },
+  // Visualization gates (inline state display)
+  [GateType.BLOCH_VIS]: {
+    type: GateType.BLOCH_VIS,
+    label: 'Bloch',
+    fullName: 'Bloch Sphere',
+    description: 'Displays a mini Bloch sphere showing the qubit state at this circuit position.',
+    matrixLabel: 'I',
+    qubits: 1,
+    matrix: [[ONE, ZERO], [ZERO, ONE]] // Identity - no effect on state
+  },
+  [GateType.PERCENT_VIS]: {
+    type: GateType.PERCENT_VIS,
+    label: '%',
+    fullName: 'Percentage',
+    description: 'Displays the probability of measuring |1⟩ at this circuit position.',
+    matrixLabel: 'I',
+    qubits: 1,
+    matrix: [[ONE, ZERO], [ZERO, ONE]] // Identity - no effect on state
   }
 };
 

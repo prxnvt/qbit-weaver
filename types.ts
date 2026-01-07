@@ -131,6 +131,10 @@ export enum GateType {
   INPUT_B = 'INPUT_B',   // Marks qubits as B register
   INPUT_R = 'INPUT_R',   // Marks qubits as R register (modulus)
 
+  // Visualization gates (inline state display, act as identity)
+  BLOCH_VIS = 'BLOCH_VIS',     // Mini Bloch sphere showing qubit state at position
+  PERCENT_VIS = 'PERCENT_VIS', // Percentage bar showing |1⟩ probability at position
+
   // Legacy (kept for compatibility, consider removing)
   EMPTY = 'EMPTY'
 }
@@ -579,6 +583,20 @@ export type ResizableSpanningGate = ArrayElement<typeof RESIZABLE_SPANNING_GATES
 /** Type guard: checks if a gate has a resizable span */
 export function isResizableSpanningGate(gate: GateType): gate is ResizableSpanningGate {
   return (RESIZABLE_SPANNING_GATES as readonly GateType[]).includes(gate);
+}
+
+/** Visualization gates (inline state display, act as identity) */
+export const VISUALIZATION_GATES = [
+  GateType.BLOCH_VIS,
+  GateType.PERCENT_VIS,
+] as const satisfies readonly GateType[];
+
+/** Union type of visualization gates */
+export type VisualizationGate = ArrayElement<typeof VISUALIZATION_GATES>;
+
+/** Type guard: checks if a gate is a visualization gate */
+export function isVisualizationGate(gate: GateType): gate is VisualizationGate {
+  return (VISUALIZATION_GATES as readonly GateType[]).includes(gate);
 }
 
 export interface GateDef {

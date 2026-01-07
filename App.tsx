@@ -17,11 +17,14 @@ import {
   isArithmeticLilacGate,
   isSpanningGate,
   isResizableSpanningGate,
+  isVisualizationGate,
 } from './types';
 import { INITIAL_ROWS, INITIAL_COLS, MAX_ROWS, ROW_HEIGHT, CELL_WIDTH, GRID_CELL_SIZE, GATE_DEFS } from './constants';
 import { GateLibrary } from './components/GateLibrary';
 import { Gate } from './components/Gate';
 import { BlochSphere } from './components/BlochSphere';
+import { InlineBlochSphere } from './components/InlineBlochSphere';
+import { InlinePercentage } from './components/InlinePercentage';
 import { AmplitudeGrid } from './components/AmplitudeGrid';
 import { AngleInput } from './components/AngleInput';
 import { CustomGateDialog } from './components/CustomGateDialog';
@@ -488,6 +491,28 @@ const App: React.FC = () => {
     return activeColumns[stepIndex - 1] ?? -1;
   }, [stepMode, stepIndex, activeColumns]);
 
+  // Helper to get quantum state at a specific column position for visualization gates
+  const getStateAtColumn = useCallback((colIndex: number): Complex[] | null => {
+    if (!hasRun || stateHistory.length === 0) return null;
+
+    // stateHistory[0] = initial state (before any gates)
+    // stateHistory[i+1] = state after activeColumns[i]
+    // We want the state AFTER the column with the visualization gate
+
+    // Find which stateHistory index corresponds to this column
+    const historyIndex = activeColumns.findIndex(c => c === colIndex);
+    if (historyIndex === -1) {
+      // Column is not an active column (no gates were applied)
+      // Find the last active column before this one
+      const prevActiveIndex = activeColumns.findLastIndex(c => c < colIndex);
+      if (prevActiveIndex === -1) {
+        return stateHistory[0]; // Initial state (before any gates)
+      }
+      return stateHistory[prevActiveIndex + 1] ?? stateHistory[stateHistory.length - 1];
+    }
+    // Return state AFTER this column (historyIndex + 1)
+    return stateHistory[historyIndex + 1] ?? stateHistory[stateHistory.length - 1];
+  }, [hasRun, stateHistory, activeColumns]);
 
   const handleDrop = useCallback((row: number, dropCol: number, type: GateType, params?: GateParams) => {
     pushState(prev => {
@@ -1509,8 +1534,45 @@ const App: React.FC = () => {
                                 }`}
                                 style={{ height: ROW_HEIGHT, width: CELL_WIDTH }}
                               >
-                                {/* Regular gates (non-spanning) */}
-                                {cell.gate && !isSpanningGate(cell.gate) && (
+                                {/* Regular gates (non-spanning, non-visualization) */}
+                                {cell.gate && !isSpanningGate(cell.gate) && !isVisualizationGate(cell.gate) && (
+                                  <Gate type={cell.gate} onHover={handleGateHover} params={cell.params} cellId={cell.id} hasError={cellHasError(rIdx, cIdx)} />
+                                )}
+                                {/* Visualization gates - show inline visualization when circuit has run */}
+                                {cell.gate && isVisualizationGate(cell.gate) && hasRun && (() => {
+                                  const stateAtCol = getStateAtColumn(cIdx);
+                                  const filteredIdx = populatedRows.indexOf(rIdx);
+                                  if (!stateAtCol || filteredIdx === -1) {
+                                    // Fallback to icon if state not available
+                                    return <Gate type={cell.gate} onHover={handleGateHover} params={cell.params} cellId={cell.id} hasError={cellHasError(rIdx, cIdx)} />;
+                                  }
+                                  if (cell.gate === GateType.BLOCH_VIS) {
+                                    return (
+                                      <InlineBlochSphere
+                                        state={stateAtCol}
+                                        qubitIndex={filteredIdx}
+                                        numQubits={populatedRows.length}
+                                        row={rIdx}
+                                        cellId={cell.id}
+                                        onHover={setHoverInfo}
+                                      />
+                                    );
+                                  } else if (cell.gate === GateType.PERCENT_VIS) {
+                                    return (
+                                      <InlinePercentage
+                                        state={stateAtCol}
+                                        qubitIndex={filteredIdx}
+                                        numQubits={populatedRows.length}
+                                        row={rIdx}
+                                        cellId={cell.id}
+                                        onHover={setHoverInfo}
+                                      />
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                                {/* Visualization gates - show icon when circuit hasn't run */}
+                                {cell.gate && isVisualizationGate(cell.gate) && !hasRun && (
                                   <Gate type={cell.gate} onHover={handleGateHover} params={cell.params} cellId={cell.id} hasError={cellHasError(rIdx, cIdx)} />
                                 )}
                                 {/* Render spanning gate anchor (REVERSE, arithmetic spanning, input markers) */}

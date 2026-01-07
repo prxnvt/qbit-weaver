@@ -15,9 +15,9 @@ interface GateLibraryProps {
 }
 
 // Sub-library categories
-type SubLibrary = 'Standard' | 'Parameterized' | 'Arithmetic' | 'Visualization' | 'Circuitry' | 'Custom';
+type SubLibrary = 'Standard' | 'Parameterized' | 'Arithmetic' | 'Custom';
 
-const SUB_LIBRARIES: SubLibrary[] = ['Standard', 'Parameterized', 'Arithmetic', 'Visualization', 'Circuitry', 'Custom'];
+const SUB_LIBRARIES: SubLibrary[] = ['Standard', 'Parameterized', 'Arithmetic', 'Custom'];
 
 // Parameterized sub-library gates (each column ordered X, Y, Z):
 // Col 1: RX, RY, RZ (angle-prompted)
@@ -40,7 +40,7 @@ const PARAMETERIZED_GATE_COLUMNS: GateType[][] = [
 // Standard sub-library gates (merged with Advanced):
 // Col 1: X, Y, Z, H
 // Col 2: CTRL, ANTI-CTRL, CNOT, CCX
-// Col 3: SWAP, MEASURE
+// Col 3: SWAP, MEASURE, Bloch, %
 // Col 4: Rv, T, CZ
 // Col 5: S, √Y, √X
 // Col 6: S†, √Y†, √X†
@@ -51,7 +51,7 @@ const PARAMETERIZED_GATE_COLUMNS: GateType[][] = [
 const STANDARD_GATE_COLUMNS: GateType[][] = [
   [GateType.X, GateType.Y, GateType.Z, GateType.H],
   [GateType.CONTROL, GateType.ANTI_CONTROL, GateType.CX, GateType.CCX],
-  [GateType.SWAP, GateType.MEASURE],
+  [GateType.SWAP, GateType.MEASURE, GateType.BLOCH_VIS, GateType.PERCENT_VIS],
   [GateType.REVERSE, GateType.T, GateType.CZ],
   [GateType.S, GateType.SQRT_Y, GateType.SQRT_X],
   [GateType.SDG, GateType.SQRT_Y_DG, GateType.SQRT_X_DG],
@@ -151,6 +151,14 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
 
   const isSearching = searchResults !== null;
 
+  const handleGateDragStart = (e: React.DragEvent, type: GateType, params?: GateParams) => {
+    e.dataTransfer.setData('gateType', type);
+    e.dataTransfer.effectAllowed = 'copy';
+    if (params) {
+      e.dataTransfer.setData('gateParams', JSON.stringify(params));
+    }
+  };
+
   const renderGateColumns = (columns: GateType[][]) => (
     <div className="flex gap-4">
       {columns.map((column, colIdx) => (
@@ -158,6 +166,8 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
           {column.map((type) => (
             <div
               key={type}
+              draggable
+              onDragStart={(e) => handleGateDragStart(e, type)}
               className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-white/10 transition-colors"
             >
               <Gate type={type} onHover={onHoverGate} isGateLibrary />
@@ -188,22 +198,27 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
         </div>
 
         {/* Custom gates from library */}
-        {customGates.slice(0, 3).map((customGate) => (
-          <div
-            key={customGate.label}
-            className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-white/10 transition-colors"
-          >
-            <Gate
-              type={GateType.CUSTOM}
-              onHover={onHoverGate}
-              params={{ customLabel: customGate.label, customMatrix: customGate.matrix }}
-              isGateLibrary
-            />
-            <span className="text-base font-bold text-purple-400 uppercase truncate">
-              {customGate.label}
-            </span>
-          </div>
-        ))}
+        {customGates.slice(0, 3).map((customGate) => {
+          const customParams = { customLabel: customGate.label, customMatrix: customGate.matrix };
+          return (
+            <div
+              key={customGate.label}
+              draggable
+              onDragStart={(e) => handleGateDragStart(e, GateType.CUSTOM, customParams)}
+              className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-white/10 transition-colors"
+            >
+              <Gate
+                type={GateType.CUSTOM}
+                onHover={onHoverGate}
+                params={customParams}
+                isGateLibrary
+              />
+              <span className="text-base font-bold text-purple-400 uppercase truncate">
+                {customGate.label}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -236,6 +251,8 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
             {column.map((type) => (
               <div
                 key={type}
+                draggable
+                onDragStart={(e) => handleGateDragStart(e, type)}
                 className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-white/10 transition-colors"
               >
                 <Gate type={type} onHover={onHoverGate} isGateLibrary />
@@ -258,8 +275,6 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
         return renderGateColumns(PARAMETERIZED_GATE_COLUMNS);
       case 'Arithmetic':
         return renderGateColumns(ARITHMETIC_GATE_COLUMNS);
-      case 'Circuitry':
-        return renderEmptySubLibrary();
       case 'Custom':
         return renderCustomGates();
       default:
@@ -269,11 +284,11 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
 
   return (
     <div
-      className="border-t-2 border-white bg-black px-4 pt-3 pb-6 z-10"
+      className="border-t-2 border-white bg-black px-4 pt-2 pb-4 z-10"
       style={{ height: GATE_LIBRARY_HEIGHT, minHeight: GATE_LIBRARY_HEIGHT, flexShrink: 0 }}
     >
-      {/* Header row: Title and Search */}
-      <div className="flex items-center gap-4 mb-3">
+      {/* Header row: Title, Search, and Sub-library tabs */}
+      <div className="flex items-center gap-4 mb-2">
         <span className="text-lg font-bold text-white uppercase shrink-0 tracking-tight">
           Gate Library
         </span>
@@ -296,26 +311,25 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
             </button>
           )}
         </div>
+        {/* Sub-library toggle buttons (hidden when searching) */}
+        {!isSearching && (
+          <div className="flex gap-1">
+            {SUB_LIBRARIES.map((lib) => (
+              <button
+                key={lib}
+                onClick={() => setActiveSubLibrary(lib)}
+                className={`px-2 py-1 text-base font-bold uppercase transition-colors ${
+                  activeSubLibrary === lib
+                    ? 'bg-white text-black'
+                    : 'text-white hover:bg-white/20'
+                }`}
+              >
+                {lib}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-
-      {/* Sub-library toggle buttons (hidden when searching) */}
-      {!isSearching && (
-        <div className="flex gap-1 mb-3">
-          {SUB_LIBRARIES.map((lib) => (
-            <button
-              key={lib}
-              onClick={() => setActiveSubLibrary(lib)}
-              className={`px-2 py-1 text-base font-bold uppercase transition-colors ${
-                activeSubLibrary === lib
-                  ? 'bg-white text-black'
-                  : 'text-white hover:bg-white/20'
-              }`}
-            >
-              {lib}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Sub-library content or search results with horizontal scroll */}
       <div className="overflow-x-auto">

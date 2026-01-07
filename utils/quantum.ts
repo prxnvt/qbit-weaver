@@ -20,6 +20,7 @@ import {
   isRequiresInputAGate,
   isRequiresInputBGate,
   isRequiresInputRGate,
+  isVisualizationGate,
   ArithmeticFixed2x1Gate,
   ArithmeticComparisonGate,
   ArithmeticScalarGate,
@@ -1696,6 +1697,9 @@ const simulateColumn = (
     const cell = grid[originalRow][col];
     const type = cell.gate;
     if (!type) continue;
+
+    // Skip visualization gates - they don't affect the quantum state
+    if (isVisualizationGate(type)) continue;
 
     const filteredRow = rowMapping ? rowMapping.get(originalRow)! : originalRow;
 
