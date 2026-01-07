@@ -35,7 +35,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
     }
   };
 
-  const baseClasses = "w-10 h-10 flex items-center justify-center text-sm font-bold cursor-grab active:cursor-grabbing select-none z-20 relative";
+  const baseClasses = "w-10 h-10 flex items-center justify-center text-base font-bold cursor-grab active:cursor-grabbing select-none z-20 relative";
   const errorBgClass = hasError ? "!bg-red-600" : "";
 
   // Custom Styles per Gate Type
@@ -47,7 +47,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
       content = (
         <div className="relative w-full h-full flex items-center justify-center">
           <div className="absolute w-full h-0.5 bg-neutral-500"></div>
-          <span className="text-neutral-400 text-xs bg-black px-1">I</span>
+          <span className="text-neutral-400 text-sm bg-black px-1">I</span>
         </div>
       );
       specificStyles = "bg-black border-2 border-neutral-500 text-neutral-400";
@@ -61,19 +61,19 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
       specificStyles = "bg-black border-2 border-white rounded-none";
   } else if (type === GateType.X_CONTROL) {
       // X-basis control (conditions on |+⟩)
-      content = <span className="text-xs font-bold">XC</span>;
+      content = <span className="text-sm font-bold">XC</span>;
       specificStyles = "bg-black border-2 border-orange-400 text-orange-400";
   } else if (type === GateType.X_ANTI_CONTROL) {
       // X-basis anti-control (conditions on |-⟩)
-      content = <span className="text-xs font-bold">XA</span>;
+      content = <span className="text-sm font-bold">XA</span>;
       specificStyles = "bg-black border-2 border-orange-400 text-orange-400";
   } else if (type === GateType.Y_CONTROL) {
       // Y-basis control (conditions on |+i⟩)
-      content = <span className="text-xs font-bold">YC</span>;
+      content = <span className="text-sm font-bold">YC</span>;
       specificStyles = "bg-black border-2 border-green-400 text-green-400";
   } else if (type === GateType.Y_ANTI_CONTROL) {
       // Y-basis anti-control (conditions on |-i⟩)
-      content = <span className="text-xs font-bold">YA</span>;
+      content = <span className="text-sm font-bold">YA</span>;
       specificStyles = "bg-black border-2 border-green-400 text-green-400";
   } else if (type === GateType.CX) {
       // CNOT target - circle with plus
@@ -86,7 +86,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
       );
       specificStyles = "bg-black border-none text-white";
   } else if (type === GateType.CZ) {
-      content = <span className="text-xs font-bold">CZ</span>;
+      content = <span className="text-sm font-bold">CZ</span>;
       specificStyles = "bg-black border-2 border-white text-white";
   } else if (type === GateType.SWAP) {
       content = <span className="text-lg">×</span>;
@@ -109,7 +109,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
       // Measurement gate - meter icon style
       content = (
         <div className="flex flex-col items-center justify-center">
-          <span className="text-sm font-bold">M</span>
+          <span className="text-base font-bold">M</span>
         </div>
       );
       specificStyles = "bg-black border-2 border-white text-white";
@@ -120,11 +120,11 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
       content = (
         <div className="flex flex-col items-center leading-none">
           <div className="flex items-baseline">
-            <span className="text-xs">R</span>
-            <span className="text-[8px]">{axis}</span>
+            <span className="text-sm">R</span>
+            <span className="text-xs">{axis}</span>
           </div>
           {angleLabel && (
-            <span className="text-[8px] text-cyan-300 -mt-0.5">{angleLabel}</span>
+            <span className="text-xs text-cyan-300 -mt-0.5">{angleLabel}</span>
           )}
         </div>
       );
@@ -141,41 +141,41 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
       content = (
         <div className="flex flex-col items-center leading-none">
           <div className="flex items-baseline">
-            <span className="text-xs">R</span>
-            <span className="text-[8px]">{axis}</span>
+            <span className="text-sm">R</span>
+            <span className="text-xs">{axis}</span>
           </div>
-          <span className="text-[8px] text-cyan-300 -mt-0.5">{angleLabel}</span>
+          <span className="text-xs text-cyan-300 -mt-0.5">{angleLabel}</span>
         </div>
       );
       specificStyles = "bg-black border-2 border-cyan-400 text-cyan-400";
   } else if (type === GateType.SDG) {
       // S-dagger gate
-      content = <span className="text-xs font-bold">S†</span>;
+      content = <span className="text-sm font-bold">S†</span>;
       specificStyles = "bg-black border-2 border-white text-white";
   } else if (type === GateType.SQRT_X) {
       // Square root of X
-      content = <span className="text-xs font-bold">√X</span>;
+      content = <span className="text-sm font-bold">√X</span>;
       specificStyles = "bg-black border-2 border-white text-white";
   } else if (type === GateType.SQRT_X_DG) {
       // Inverse square root of X
-      content = <span className="text-[10px] font-bold">√X†</span>;
+      content = <span className="text-sm font-bold">√X†</span>;
       specificStyles = "bg-black border-2 border-white text-white";
   } else if (type === GateType.SQRT_Y) {
       // Square root of Y
-      content = <span className="text-xs font-bold">√Y</span>;
+      content = <span className="text-sm font-bold">√Y</span>;
       specificStyles = "bg-black border-2 border-white text-white";
   } else if (type === GateType.SQRT_Y_DG) {
       // Inverse square root of Y
-      content = <span className="text-[10px] font-bold">√Y†</span>;
+      content = <span className="text-sm font-bold">√Y†</span>;
       specificStyles = "bg-black border-2 border-white text-white";
   } else if (type === GateType.CUSTOM) {
       // Custom gate - show label or 'U'
       const label = params?.customLabel || 'U';
-      content = <span className="text-xs font-bold">{label}</span>;
+      content = <span className="text-sm font-bold">{label}</span>;
       specificStyles = "bg-black border-2 border-purple-400 text-purple-400";
   } else if (type === GateType.REVERSE) {
       // Reverse gate - bit-reversal permutation
-      content = <span className="text-xs font-bold">Rv</span>;
+      content = <span className="text-sm font-bold">Rv</span>;
       specificStyles = "bg-black border-2 border-yellow-400 text-yellow-400";
   }
   // ============================================================================
@@ -187,23 +187,23 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
 
       // Column 1: Increment/Decrement
       if (type === GateType.INC) {
-          content = <span className="text-xs font-bold">+1</span>;
+          content = <span className="text-sm font-bold">+1</span>;
       } else if (type === GateType.DEC) {
-          content = <span className="text-xs font-bold">-1</span>;
+          content = <span className="text-sm font-bold">-1</span>;
       } else if (type === GateType.ADD_A) {
-          content = <span className="text-xs font-bold">+A</span>;
+          content = <span className="text-sm font-bold">+A</span>;
       } else if (type === GateType.SUB_A) {
-          content = <span className="text-xs font-bold">-A</span>;
+          content = <span className="text-sm font-bold">-A</span>;
       }
       // Column 2: Multiply/Divide
       else if (type === GateType.MUL_A) {
-          content = <span className="text-xs font-bold">×A</span>;
+          content = <span className="text-sm font-bold">×A</span>;
       } else if (type === GateType.DIV_A) {
-          content = <span className="text-xs font-bold">÷A</span>;
+          content = <span className="text-sm font-bold">÷A</span>;
       } else if (type === GateType.MUL_B) {
-          content = <span className="text-xs font-bold">×B</span>;
+          content = <span className="text-sm font-bold">×B</span>;
       } else if (type === GateType.DIV_B) {
-          content = <span className="text-xs font-bold">÷B</span>;
+          content = <span className="text-sm font-bold">÷B</span>;
       }
   }
   // ============================================================================
@@ -214,17 +214,17 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
       specificStyles = violetBase;
 
       if (type === GateType.A_LT_B) {
-          content = <span className="text-xs font-bold">A&lt;B</span>;
+          content = <span className="text-sm font-bold">A&lt;B</span>;
       } else if (type === GateType.A_LEQ_B) {
-          content = <span className="text-xs font-bold">A≤B</span>;
+          content = <span className="text-sm font-bold">A≤B</span>;
       } else if (type === GateType.A_GT_B) {
-          content = <span className="text-xs font-bold">A&gt;B</span>;
+          content = <span className="text-sm font-bold">A&gt;B</span>;
       } else if (type === GateType.A_GEQ_B) {
-          content = <span className="text-xs font-bold">A≥B</span>;
+          content = <span className="text-sm font-bold">A≥B</span>;
       } else if (type === GateType.A_EQ_B) {
-          content = <span className="text-xs font-bold">A=B</span>;
+          content = <span className="text-sm font-bold">A=B</span>;
       } else if (type === GateType.A_NEQ_B) {
-          content = <span className="text-xs font-bold">A≠B</span>;
+          content = <span className="text-sm font-bold">A≠B</span>;
       }
   }
   // ============================================================================
@@ -237,43 +237,43 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
       if (type === GateType.INC_MOD_R) {
           content = (
             <div className="flex flex-col items-center leading-none">
-              <span className="text-xs font-bold">+1</span>
-              <span className="text-[9px]">%R</span>
+              <span className="text-sm font-bold">+1</span>
+              <span className="text-xs">%R</span>
             </div>
           );
       } else if (type === GateType.DEC_MOD_R) {
           content = (
             <div className="flex flex-col items-center leading-none">
-              <span className="text-xs font-bold">-1</span>
-              <span className="text-[9px]">%R</span>
+              <span className="text-sm font-bold">-1</span>
+              <span className="text-xs">%R</span>
             </div>
           );
       } else if (type === GateType.ADD_A_MOD_R) {
           content = (
             <div className="flex flex-col items-center leading-none">
-              <span className="text-xs font-bold">+A</span>
-              <span className="text-[9px]">%R</span>
+              <span className="text-sm font-bold">+A</span>
+              <span className="text-xs">%R</span>
             </div>
           );
       } else if (type === GateType.SUB_A_MOD_R) {
           content = (
             <div className="flex flex-col items-center leading-none">
-              <span className="text-xs font-bold">-A</span>
-              <span className="text-[9px]">%R</span>
+              <span className="text-sm font-bold">-A</span>
+              <span className="text-xs">%R</span>
             </div>
           );
       } else if (type === GateType.MUL_A_MOD_R) {
           content = (
             <div className="flex flex-col items-center leading-none">
-              <span className="text-xs font-bold">×A</span>
-              <span className="text-[9px]">%R</span>
+              <span className="text-sm font-bold">×A</span>
+              <span className="text-xs">%R</span>
             </div>
           );
       } else if (type === GateType.DIV_A_MOD_R) {
           content = (
             <div className="flex flex-col items-center leading-none">
-              <span className="text-xs font-bold">÷A</span>
-              <span className="text-[9px]">%R</span>
+              <span className="text-sm font-bold">÷A</span>
+              <span className="text-xs">%R</span>
             </div>
           );
       }
@@ -286,13 +286,13 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
       specificStyles = pinkBase;
 
       if (type === GateType.SCALE_I) {
-          content = <span className="text-xs font-bold">×i</span>;
+          content = <span className="text-sm font-bold">×i</span>;
       } else if (type === GateType.SCALE_NEG_I) {
-          content = <span className="text-xs font-bold">×-i</span>;
+          content = <span className="text-sm font-bold">×-i</span>;
       } else if (type === GateType.SCALE_SQRT_I) {
-          content = <span className="text-xs font-bold">×√i</span>;
+          content = <span className="text-sm font-bold">×√i</span>;
       } else if (type === GateType.SCALE_SQRT_NEG_I) {
-          content = <span className="text-[10px] font-bold">×√-i</span>;
+          content = <span className="text-sm font-bold">×√-i</span>;
       }
   }
   // ============================================================================

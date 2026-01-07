@@ -35,7 +35,7 @@ export const AlgorithmSidebar: React.FC<AlgorithmSidebarProps> = ({ onHoverTempl
       {CATEGORIES.map((category) => (
         <div key={category}>
           {/* Category Header */}
-          <div className="px-3 py-1.5 text-sm font-bold uppercase text-gray-400 bg-gray-900 border-b border-gray-800 sticky top-10 z-[5]">
+          <div className="px-3 py-2 text-lg font-bold uppercase text-gray-400 bg-gray-900 border-b border-gray-800 sticky top-10 z-[5]">
             {category}
           </div>
 

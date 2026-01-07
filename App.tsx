@@ -1043,7 +1043,7 @@ const App: React.FC = () => {
         <div className="flex items-center gap-6">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <h1 className="font-bold text-2xl tracking-tight uppercase">QCVO</h1>
+            <h1 className="font-bold text-4xl tracking-tight">Qbit Weaver</h1>
           </div>
 
           {/* Step Mode Toggle */}
