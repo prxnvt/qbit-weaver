@@ -1,4 +1,4 @@
-# QCVO - Quantum Circuit Visualization Operator
+# Qbit Weaver
 
 An interactive, browser-based quantum circuit builder and simulator for learning and experimenting with quantum computing fundamentals.
 
