@@ -24,6 +24,10 @@ dist-ssr
 *.sw?
 
 .claude/
+refs/
+hooks/
+future-plans.md 
+.agents/
 
 node_modules/
 
@@ -47,3 +51,6 @@ coverage
 Thumbs.db
 refs/UI_concept_01022026.html
 refs/UI_concept_01022026.png
+
+# Claude memory context files
+**/CLAUDE.md
