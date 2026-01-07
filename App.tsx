@@ -1397,9 +1397,9 @@ const App: React.FC = () => {
                               onMouseEnter={() => setHoverInfo({ type: 'percentage', qubit: rIdx, probability: parseFloat(prob1Pct) })}
                               onMouseLeave={() => setHoverInfo({ type: 'none' })}
                             >
-                              {/* Green fill from bottom based on percentage */}
+                              {/* Emerald fill from bottom based on percentage */}
                               <div
-                                className="absolute bottom-0 left-0 right-0 bg-green-600"
+                                className="absolute bottom-0 left-0 right-0 bg-emerald-600"
                                 style={{ height: `${prob1Pct}%` }}
                               />
                               {/* Black background for unfilled portion */}

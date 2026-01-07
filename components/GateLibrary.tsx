@@ -170,7 +170,7 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
                   className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-white/10 transition-colors"
                 >
                   <Gate type={type} onHover={onHoverGate} isGateLibrary />
-                  <span className="text-xs font-bold text-white uppercase truncate">
+                  <span className="text-sm font-bold text-white uppercase truncate">
                     {GATE_DEFS[type]?.fullName || type}
                   </span>
                 </div>
@@ -196,7 +196,7 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
           <div className="w-10 h-10 border-2 border-dashed border-purple-500 flex items-center justify-center text-purple-400 font-bold text-xs">
             +
           </div>
-          <span className="text-xs font-bold text-purple-400 uppercase">
+          <span className="text-sm font-bold text-purple-400 uppercase">
             Custom
           </span>
         </div>
@@ -213,7 +213,7 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
               params={{ customLabel: customGate.label, customMatrix: customGate.matrix }}
               isGateLibrary
             />
-            <span className="text-xs font-bold text-purple-400 uppercase truncate">
+            <span className="text-sm font-bold text-purple-400 uppercase truncate">
               {customGate.label}
             </span>
           </div>

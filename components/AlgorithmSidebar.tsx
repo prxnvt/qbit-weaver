@@ -28,14 +28,14 @@ export const AlgorithmSidebar: React.FC<AlgorithmSidebarProps> = ({ onHoverTempl
     >
       {/* Header */}
       <div className="px-3 py-2 border-b-2 border-white sticky top-0 bg-black z-10">
-        <span className="text-sm font-bold text-white uppercase">Templates</span>
+        <span className="text-lg font-bold text-white uppercase">Templates</span>
       </div>
 
       {/* Categories and Templates */}
       {CATEGORIES.map((category) => (
         <div key={category}>
           {/* Category Header */}
-          <div className="px-3 py-1.5 text-[10px] font-bold uppercase text-gray-400 bg-gray-900 border-b border-gray-800 sticky top-10 z-[5]">
+          <div className="px-3 py-1.5 text-sm font-bold uppercase text-gray-400 bg-gray-900 border-b border-gray-800 sticky top-10 z-[5]">
             {category}
           </div>
 
@@ -50,12 +50,9 @@ export const AlgorithmSidebar: React.FC<AlgorithmSidebarProps> = ({ onHoverTempl
               onMouseLeave={() => onHoverTemplate(null)}
               className="px-3 py-2 border-b border-gray-800 cursor-grab active:cursor-grabbing select-none"
             >
-              <div className="text-base font-bold text-white">{template.name}</div>
-              <div className="text-xs text-gray-400 mt-0.5 line-clamp-2">
+              <div className="text-xl font-bold text-white">{template.name}</div>
+              <div className="text-sm text-gray-400 mt-0.5 line-clamp-2">
                 {template.description}
-              </div>
-              <div className="text-[9px] text-gray-500 mt-1">
-                {template.qubits} qubits
               </div>
             </div>
           ))}
