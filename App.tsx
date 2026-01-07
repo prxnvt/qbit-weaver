@@ -1618,35 +1618,33 @@ const App: React.FC = () => {
                           style={{ width: CELL_WIDTH, height: ROW_HEIGHT }}
                         />
 
-                        {/* Post-run: Percentage box + Bloch Sphere + Grid */}
-                        {hasRun && (
-                          <div className="flex items-center ml-4 gap-4">
-                            {/* Percentage of |1⟩ in a box with green fill from bottom */}
+                        {/* Percentage box + Bloch Sphere - always visible */}
+                        <div className="flex items-center ml-4 gap-4">
+                          {/* Percentage of |1⟩ in a box with green fill from bottom */}
+                          <div
+                            className="border-2 border-white/30 flex items-center justify-center font-bold text-white relative overflow-hidden cursor-pointer"
+                            style={{ width: GRID_CELL_SIZE, height: GRID_CELL_SIZE }}
+                            onMouseEnter={() => setHoverInfo({ type: 'percentage', qubit: rIdx, probability: parseFloat(prob1Pct) })}
+                            onMouseLeave={() => setHoverInfo({ type: 'none' })}
+                          >
+                            {/* Emerald fill from bottom based on percentage */}
                             <div
-                              className="border-2 border-white/30 flex items-center justify-center font-bold text-white relative overflow-hidden cursor-pointer"
-                              style={{ width: GRID_CELL_SIZE, height: GRID_CELL_SIZE }}
-                              onMouseEnter={() => setHoverInfo({ type: 'percentage', qubit: rIdx, probability: parseFloat(prob1Pct) })}
-                              onMouseLeave={() => setHoverInfo({ type: 'none' })}
-                            >
-                              {/* Emerald fill from bottom based on percentage */}
-                              <div
-                                className="absolute bottom-0 left-0 right-0 bg-emerald-600"
-                                style={{ height: `${prob1Pct}%` }}
-                              />
-                              {/* Black background for unfilled portion */}
-                              <div className="absolute inset-0 bg-black" style={{ bottom: `${prob1Pct}%`, top: 0 }} />
-                              <span className="text-lg relative z-10">{prob1Pct}%</span>
-                            </div>
-                            {/* Bloch Sphere */}
-                            <BlochSphere
-                              x={bx} y={by} z={bz}
-                              size={GRID_CELL_SIZE - 8}
-                              row={rIdx}
-                              col={-1}
-                              onHover={setHoverInfo}
+                              className="absolute bottom-0 left-0 right-0 bg-emerald-600"
+                              style={{ height: `${prob1Pct}%` }}
                             />
+                            {/* Black background for unfilled portion */}
+                            <div className="absolute inset-0 bg-black" style={{ bottom: `${prob1Pct}%`, top: 0 }} />
+                            <span className="text-lg relative z-10">{prob1Pct}%</span>
                           </div>
-                        )}
+                          {/* Bloch Sphere */}
+                          <BlochSphere
+                            x={bx} y={by} z={bz}
+                            size={GRID_CELL_SIZE - 8}
+                            row={rIdx}
+                            col={-1}
+                            onHover={setHoverInfo}
+                          />
+                        </div>
 
                       </div>
                     </div>
