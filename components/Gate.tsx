@@ -7,6 +7,10 @@ import {
   isArithmeticLilacGate,
   isArithmeticPinkGate,
   isArithmeticInputGate,
+  isTimeParameterizedGate,
+  isExponentialGate,
+  isQFTGate,
+  isInputParameterizedGate,
 } from '../types';
 import { formatAngle } from '../utils/angleParser';
 
@@ -177,6 +181,139 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
       // Reverse gate - bit-reversal permutation
       content = <span className="text-sm font-bold">Rv</span>;
       specificStyles = "bg-black border-2 border-yellow-400 text-yellow-400";
+  } else if (type === GateType.PHASE_GRADIENT) {
+      // Phase Gradient gate - yellow
+      content = <span className="text-sm font-bold">PG</span>;
+      specificStyles = "bg-black border-2 border-yellow-400 text-yellow-400";
+  }
+  // ============================================================================
+  // TIME-PARAMETERIZED GATES - Blue (Z^t, X^t, Y^t)
+  // ============================================================================
+  else if (isTimeParameterizedGate(type)) {
+      const blueBase = "bg-black border-2 border-blue-500 text-blue-400";
+      specificStyles = blueBase;
+
+      if (type === GateType.ZT) {
+          content = (
+            <div className="flex items-baseline">
+              <span className="text-sm font-bold">Z</span>
+              <span className="text-xs font-bold align-super">t</span>
+            </div>
+          );
+      } else if (type === GateType.XT) {
+          content = (
+            <div className="flex items-baseline">
+              <span className="text-sm font-bold">X</span>
+              <span className="text-xs font-bold align-super">t</span>
+            </div>
+          );
+      } else if (type === GateType.YT) {
+          content = (
+            <div className="flex items-baseline">
+              <span className="text-sm font-bold">Y</span>
+              <span className="text-xs font-bold align-super">t</span>
+            </div>
+          );
+      }
+  }
+  // ============================================================================
+  // INPUT-PARAMETERIZED GATES - Blue (Z^A, X^A, Y^A, Z^B, X^B, Y^B)
+  // ============================================================================
+  else if (isInputParameterizedGate(type)) {
+      const blueBase = "bg-black border-2 border-blue-500 text-blue-400";
+      specificStyles = blueBase;
+
+      if (type === GateType.ZA) {
+          content = (
+            <div className="flex items-baseline">
+              <span className="text-sm font-bold">Z</span>
+              <span className="text-xs font-bold align-super">A</span>
+            </div>
+          );
+      } else if (type === GateType.XA) {
+          content = (
+            <div className="flex items-baseline">
+              <span className="text-sm font-bold">X</span>
+              <span className="text-xs font-bold align-super">A</span>
+            </div>
+          );
+      } else if (type === GateType.YA) {
+          content = (
+            <div className="flex items-baseline">
+              <span className="text-sm font-bold">Y</span>
+              <span className="text-xs font-bold align-super">A</span>
+            </div>
+          );
+      } else if (type === GateType.ZB) {
+          content = (
+            <div className="flex items-baseline">
+              <span className="text-sm font-bold">Z</span>
+              <span className="text-xs font-bold align-super">B</span>
+            </div>
+          );
+      } else if (type === GateType.XB) {
+          content = (
+            <div className="flex items-baseline">
+              <span className="text-sm font-bold">X</span>
+              <span className="text-xs font-bold align-super">B</span>
+            </div>
+          );
+      } else if (type === GateType.YB) {
+          content = (
+            <div className="flex items-baseline">
+              <span className="text-sm font-bold">Y</span>
+              <span className="text-xs font-bold align-super">B</span>
+            </div>
+          );
+      }
+  }
+  // ============================================================================
+  // EXPONENTIAL GATES - Blue (e^Z, e^X, e^Y)
+  // ============================================================================
+  else if (isExponentialGate(type)) {
+      const blueBase = "bg-black border-2 border-blue-500 text-blue-400";
+      specificStyles = blueBase;
+
+      if (type === GateType.EXP_Z) {
+          content = (
+            <div className="flex items-baseline">
+              <span className="text-sm font-bold">e</span>
+              <span className="text-xs font-bold align-super">Z</span>
+            </div>
+          );
+      } else if (type === GateType.EXP_X) {
+          content = (
+            <div className="flex items-baseline">
+              <span className="text-sm font-bold">e</span>
+              <span className="text-xs font-bold align-super">X</span>
+            </div>
+          );
+      } else if (type === GateType.EXP_Y) {
+          content = (
+            <div className="flex items-baseline">
+              <span className="text-sm font-bold">e</span>
+              <span className="text-xs font-bold align-super">Y</span>
+            </div>
+          );
+      }
+  }
+  // ============================================================================
+  // QFT GATES - Purple (QFT, QFT†)
+  // ============================================================================
+  else if (isQFTGate(type)) {
+      const purpleBase = "bg-black border-2 border-purple-500 text-purple-400";
+      specificStyles = purpleBase;
+
+      if (type === GateType.QFT) {
+          content = <span className="text-sm font-bold">QFT</span>;
+      } else if (type === GateType.QFT_DG) {
+          content = (
+            <div className="flex items-baseline">
+              <span className="text-sm font-bold">QFT</span>
+              <span className="text-xs font-bold align-super">†</span>
+            </div>
+          );
+      }
   }
   // ============================================================================
   // ARITHMETIC GATES - Dark Blue (inc/dec, mul/div)

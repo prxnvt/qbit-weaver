@@ -63,6 +63,31 @@ export enum GateType {
   CUSTOM = 'CUSTOM',   // User-defined gate
   REVERSE = 'REVERSE', // Bit-reversal permutation gate (spans multiple qubits)
 
+  // Time-parameterized gates (rotation = t full turns, t animates 0→1)
+  ZT = 'ZT',           // Z^t: [[1, 0], [0, e^(i×2π×t)]]
+  XT = 'XT',           // X^t: H × Z^t × H
+  YT = 'YT',           // Y^t: √X† × Z^t × √X
+
+  // Input-parameterized gates (rotation = A/2^n or B/2^n full turns)
+  ZA = 'ZA',           // Z^A: Phase rotation based on inputA register
+  XA = 'XA',           // X^A: X-axis rotation based on inputA register
+  YA = 'YA',           // Y^A: Y-axis rotation based on inputA register
+  ZB = 'ZB',           // Z^B: Phase rotation based on inputB register
+  XB = 'XB',           // X^B: X-axis rotation based on inputB register
+  YB = 'YB',           // Y^B: Y-axis rotation based on inputB register
+
+  // Phase gradient gate (applies Z^(k/2^n) to each basis state k)
+  PHASE_GRADIENT = 'PHASE_GRADIENT',
+
+  // Exponential gates (e^(iπtZ), e^(iπtX), e^(iπtY) - time animated)
+  EXP_Z = 'EXP_Z',         // e^(iπtZ) = [[e^(iπt), 0], [0, e^(-iπt)]]
+  EXP_X = 'EXP_X',         // e^(iπtX) = [[cos(πt), i·sin(πt)], [i·sin(πt), cos(πt)]]
+  EXP_Y = 'EXP_Y',         // e^(iπtY) = [[cos(πt), sin(πt)], [-sin(πt), cos(πt)]]
+
+  // QFT gates (resizable spanning gates)
+  QFT = 'QFT',             // Quantum Fourier Transform
+  QFT_DG = 'QFT_DG',       // Inverse QFT (QFT†)
+
   // Arithmetic gates - Column 1: Increment/Decrement
   INC = 'INC',           // +1: Increment by 1
   DEC = 'DEC',           // -1: Decrement by 1
@@ -132,6 +157,79 @@ export type ParameterizedGate = ArrayElement<typeof PARAMETERIZED_GATES>;
 /** Type guard: checks if a gate is parameterized */
 export function isParameterizedGate(gate: GateType): gate is ParameterizedGate {
   return (PARAMETERIZED_GATES as readonly GateType[]).includes(gate);
+}
+
+/** Time-parameterized gates (use global time variable t that animates 0→1) */
+export const TIME_PARAMETERIZED_GATES = [
+  GateType.ZT, GateType.XT, GateType.YT,
+] as const satisfies readonly GateType[];
+
+/** Union type of time-parameterized gates */
+export type TimeParameterizedGate = ArrayElement<typeof TIME_PARAMETERIZED_GATES>;
+
+/** Type guard: checks if a gate is time-parameterized */
+export function isTimeParameterizedGate(gate: GateType): gate is TimeParameterizedGate {
+  return (TIME_PARAMETERIZED_GATES as readonly GateType[]).includes(gate);
+}
+
+/** Exponential gates (e^(iπtZ), e^(iπtX), e^(iπtY) - time animated) */
+export const EXPONENTIAL_GATES = [
+  GateType.EXP_Z, GateType.EXP_X, GateType.EXP_Y,
+] as const satisfies readonly GateType[];
+
+/** Union type of exponential gates */
+export type ExponentialGate = ArrayElement<typeof EXPONENTIAL_GATES>;
+
+/** Type guard: checks if a gate is an exponential gate */
+export function isExponentialGate(gate: GateType): gate is ExponentialGate {
+  return (EXPONENTIAL_GATES as readonly GateType[]).includes(gate);
+}
+
+/** QFT gates (Quantum Fourier Transform and inverse) */
+export const QFT_GATES = [
+  GateType.QFT, GateType.QFT_DG,
+] as const satisfies readonly GateType[];
+
+/** Union type of QFT gates */
+export type QFTGate = ArrayElement<typeof QFT_GATES>;
+
+/** Type guard: checks if a gate is a QFT gate */
+export function isQFTGate(gate: GateType): gate is QFTGate {
+  return (QFT_GATES as readonly GateType[]).includes(gate);
+}
+
+/** Input-parameterized gates using inputA register */
+export const INPUT_PARAMETERIZED_GATES_A = [
+  GateType.ZA, GateType.XA, GateType.YA,
+] as const satisfies readonly GateType[];
+
+/** Input-parameterized gates using inputB register */
+export const INPUT_PARAMETERIZED_GATES_B = [
+  GateType.ZB, GateType.XB, GateType.YB,
+] as const satisfies readonly GateType[];
+
+/** All input-parameterized gates */
+export const INPUT_PARAMETERIZED_GATES = [
+  ...INPUT_PARAMETERIZED_GATES_A,
+  ...INPUT_PARAMETERIZED_GATES_B,
+] as const satisfies readonly GateType[];
+
+/** Union type of input-parameterized gates */
+export type InputParameterizedGate = ArrayElement<typeof INPUT_PARAMETERIZED_GATES>;
+
+/** Type guard: checks if a gate is input-parameterized (A variant) */
+export function isInputParameterizedGateA(gate: GateType): boolean {
+  return (INPUT_PARAMETERIZED_GATES_A as readonly GateType[]).includes(gate);
+}
+
+/** Type guard: checks if a gate is input-parameterized (B variant) */
+export function isInputParameterizedGateB(gate: GateType): boolean {
+  return (INPUT_PARAMETERIZED_GATES_B as readonly GateType[]).includes(gate);
+}
+
+/** Type guard: checks if a gate is input-parameterized */
+export function isInputParameterizedGate(gate: GateType): gate is InputParameterizedGate {
+  return (INPUT_PARAMETERIZED_GATES as readonly GateType[]).includes(gate);
 }
 
 /** Gates that require fixed positioning (multi-qubit operations) */
@@ -380,6 +478,10 @@ export const REQUIRES_INPUT_A = [
   GateType.SUB_A_MOD_R,
   GateType.MUL_A_MOD_R,
   GateType.DIV_A_MOD_R,
+  // Input-parameterized rotation gates
+  GateType.ZA,
+  GateType.XA,
+  GateType.YA,
 ] as const satisfies readonly GateType[];
 
 /** Union type of gates requiring inputA */
@@ -400,6 +502,10 @@ export const REQUIRES_INPUT_B = [
   GateType.A_GEQ_B,
   GateType.A_EQ_B,
   GateType.A_NEQ_B,
+  // Input-parameterized rotation gates
+  GateType.ZB,
+  GateType.XB,
+  GateType.YB,
 ] as const satisfies readonly GateType[];
 
 /** Union type of gates requiring inputB */
@@ -432,9 +538,12 @@ export function isRequiresInputRGate(gate: GateType): gate is RequiresInputRGate
 // Spanning Gate Arrays (previously in App.tsx)
 // ============================================================================
 
-/** All gates that span multiple rows (REVERSE + fixed 2x1 gates) */
+/** All gates that span multiple rows (REVERSE + PHASE_GRADIENT + QFT + fixed 2x1 gates) */
 export const ALL_SPANNING_GATE_TYPES = [
   GateType.REVERSE,
+  GateType.PHASE_GRADIENT,
+  GateType.QFT,
+  GateType.QFT_DG,
   ...ALL_FIXED_2X1_GATES,
 ] as const satisfies readonly GateType[];
 
@@ -456,9 +565,12 @@ export function assertNever(x: never): never {
   throw new Error(`Unexpected value: ${x}`);
 }
 
-/** Gates with resizable spans (only REVERSE currently) */
+/** Gates with resizable spans (REVERSE, PHASE_GRADIENT, QFT, QFT_DG) */
 export const RESIZABLE_SPANNING_GATES = [
   GateType.REVERSE,
+  GateType.PHASE_GRADIENT,
+  GateType.QFT,
+  GateType.QFT_DG,
 ] as const satisfies readonly GateType[];
 
 /** Union type of resizable spanning gates */

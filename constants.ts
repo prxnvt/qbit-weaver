@@ -358,6 +358,156 @@ export const GATE_DEFS: Partial<Record<GateType, GateDef>> = {
     qubits: 1,
     matrix: [[ONE, ZERO], [ZERO, ONE]]
   },
+  // ============================================================================
+  // Time-parameterized gates (rotation = t full turns, t animates 0→1)
+  // ============================================================================
+  [GateType.ZT]: {
+    type: GateType.ZT,
+    label: 'Z^t',
+    fullName: 'Z^t (Time)',
+    description: 'Z rotation by t full turns. t animates continuously 0→1.',
+    matrixLabel: 'Z^t',
+    qubits: 1,
+    matrix: [[ONE, ZERO], [ZERO, ONE]] // Computed at runtime based on t
+  },
+  [GateType.XT]: {
+    type: GateType.XT,
+    label: 'X^t',
+    fullName: 'X^t (Time)',
+    description: 'X rotation by t full turns. X^t = H × Z^t × H.',
+    matrixLabel: 'X^t',
+    qubits: 1,
+    matrix: [[ONE, ZERO], [ZERO, ONE]] // Computed at runtime based on t
+  },
+  [GateType.YT]: {
+    type: GateType.YT,
+    label: 'Y^t',
+    fullName: 'Y^t (Time)',
+    description: 'Y rotation by t full turns. Y^t = √X† × Z^t × √X.',
+    matrixLabel: 'Y^t',
+    qubits: 1,
+    matrix: [[ONE, ZERO], [ZERO, ONE]] // Computed at runtime based on t
+  },
+  // ============================================================================
+  // Input-parameterized gates (rotation = A/2^n or B/2^n full turns)
+  // ============================================================================
+  [GateType.ZA]: {
+    type: GateType.ZA,
+    label: 'Z^A',
+    fullName: 'Z^A (Input)',
+    description: 'Z rotation by A/2^n full turns. Requires inputA marker.',
+    matrixLabel: 'Z^A',
+    qubits: 1,
+    matrix: [[ONE, ZERO], [ZERO, ONE]] // Not a simple matrix - varies per basis state
+  },
+  [GateType.XA]: {
+    type: GateType.XA,
+    label: 'X^A',
+    fullName: 'X^A (Input)',
+    description: 'X rotation by A/2^n full turns. Requires inputA marker.',
+    matrixLabel: 'X^A',
+    qubits: 1,
+    matrix: [[ONE, ZERO], [ZERO, ONE]]
+  },
+  [GateType.YA]: {
+    type: GateType.YA,
+    label: 'Y^A',
+    fullName: 'Y^A (Input)',
+    description: 'Y rotation by A/2^n full turns. Requires inputA marker.',
+    matrixLabel: 'Y^A',
+    qubits: 1,
+    matrix: [[ONE, ZERO], [ZERO, ONE]]
+  },
+  [GateType.ZB]: {
+    type: GateType.ZB,
+    label: 'Z^B',
+    fullName: 'Z^B (Input)',
+    description: 'Z rotation by B/2^n full turns. Requires inputB marker.',
+    matrixLabel: 'Z^B',
+    qubits: 1,
+    matrix: [[ONE, ZERO], [ZERO, ONE]]
+  },
+  [GateType.XB]: {
+    type: GateType.XB,
+    label: 'X^B',
+    fullName: 'X^B (Input)',
+    description: 'X rotation by B/2^n full turns. Requires inputB marker.',
+    matrixLabel: 'X^B',
+    qubits: 1,
+    matrix: [[ONE, ZERO], [ZERO, ONE]]
+  },
+  [GateType.YB]: {
+    type: GateType.YB,
+    label: 'Y^B',
+    fullName: 'Y^B (Input)',
+    description: 'Y rotation by B/2^n full turns. Requires inputB marker.',
+    matrixLabel: 'Y^B',
+    qubits: 1,
+    matrix: [[ONE, ZERO], [ZERO, ONE]]
+  },
+  // ============================================================================
+  // Phase Gradient Gate (multi-row span, applies Z^(k/2^n) to each basis state k)
+  // ============================================================================
+  [GateType.PHASE_GRADIENT]: {
+    type: GateType.PHASE_GRADIENT,
+    label: 'PG',
+    fullName: 'Phase Gradient',
+    description: 'Applies Z^(k/2^n) to each basis state k within the span. Used in QFT.',
+    matrixLabel: 'PG',
+    qubits: -1, // Variable: depends on span
+    matrix: [[ONE, ZERO], [ZERO, ONE]] // Computed at runtime based on span
+  },
+  // ============================================================================
+  // Exponential Gates (e^(iπtZ), e^(iπtX), e^(iπtY) - time animated)
+  // ============================================================================
+  [GateType.EXP_Z]: {
+    type: GateType.EXP_Z,
+    label: 'e^Z',
+    fullName: 'Exp Z',
+    description: 'e^(iπtZ): Exponential of Z with time parameter. [[e^(iπt), 0], [0, e^(-iπt)]]',
+    matrixLabel: 'e^{iπtZ}',
+    qubits: 1,
+    matrix: [[ONE, ZERO], [ZERO, ONE]] // Computed at runtime based on t
+  },
+  [GateType.EXP_X]: {
+    type: GateType.EXP_X,
+    label: 'e^X',
+    fullName: 'Exp X',
+    description: 'e^(iπtX): Exponential of X with time parameter. [[cos(πt), i·sin(πt)], [i·sin(πt), cos(πt)]]',
+    matrixLabel: 'e^{iπtX}',
+    qubits: 1,
+    matrix: [[ONE, ZERO], [ZERO, ONE]] // Computed at runtime based on t
+  },
+  [GateType.EXP_Y]: {
+    type: GateType.EXP_Y,
+    label: 'e^Y',
+    fullName: 'Exp Y',
+    description: 'e^(iπtY): Exponential of Y with time parameter. [[cos(πt), sin(πt)], [-sin(πt), cos(πt)]]',
+    matrixLabel: 'e^{iπtY}',
+    qubits: 1,
+    matrix: [[ONE, ZERO], [ZERO, ONE]] // Computed at runtime based on t
+  },
+  // ============================================================================
+  // QFT Gates (Quantum Fourier Transform - resizable spanning gates)
+  // ============================================================================
+  [GateType.QFT]: {
+    type: GateType.QFT,
+    label: 'QFT',
+    fullName: 'Quantum Fourier Transform',
+    description: 'Transforms computational basis to phase-encoded states. QFT[j][k] = (1/√2^n) × e^(2πijk/2^n)',
+    matrixLabel: 'QFT',
+    qubits: -1, // Variable: depends on span
+    matrix: [[ONE, ZERO], [ZERO, ONE]] // Computed at runtime based on span
+  },
+  [GateType.QFT_DG]: {
+    type: GateType.QFT_DG,
+    label: 'QFT†',
+    fullName: 'Inverse QFT',
+    description: 'Inverse Quantum Fourier Transform. Conjugate transpose of QFT.',
+    matrixLabel: 'QFT†',
+    qubits: -1, // Variable: depends on span
+    matrix: [[ONE, ZERO], [ZERO, ONE]] // Computed at runtime based on span
+  },
   [GateType.CCX]: {
     type: GateType.CCX,
     label: 'CCX',
