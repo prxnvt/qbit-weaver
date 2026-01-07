@@ -59,8 +59,6 @@ interface GateLibraryProps {
   onHoverGate: (type: GateType | null, params?: GateParams) => void;
   customGates: CustomGateDefinition[];
   onAddCustomGate: () => void;
-  /** Recently used gates (most recent first) */
-  recentGates?: GateType[];
 }
 
 // Sub-library categories
@@ -116,7 +114,7 @@ const ARITHMETIC_GATE_COLUMNS: GateType[][] = [
   [GateType.INPUT_B, GateType.INPUT_R, GateType.INPUT_A],
 ];
 
-export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGates, onAddCustomGate, recentGates = [] }) => {
+export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGates, onAddCustomGate }) => {
   const [activeSubLibrary, setActiveSubLibrary] = useState<SubLibrary>('Standard');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -287,42 +285,12 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
     }
   };
 
-  // Render recent gates as a horizontal row
-  const renderRecentGates = () => {
-    if (recentGates.length === 0) return null;
-
-    return (
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-[10px] font-bold text-white/70 uppercase shrink-0">
-          Recent
-        </span>
-        <div className="flex gap-1">
-          {recentGates.map((type) => (
-            <Tooltip key={type} delayDuration={300}>
-              <TooltipTrigger asChild>
-                <div>
-                  <Gate type={type} onHover={onHoverGate} isGateLibrary />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="bg-zinc-900 border-zinc-700 text-white">
-                <GateTooltipContent type={type} />
-              </TooltipContent>
-            </Tooltip>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <TooltipProvider>
       <div
         className="border-t-2 border-white bg-black px-4 pt-3 pb-6 z-10"
         style={{ height: GATE_LIBRARY_HEIGHT, minHeight: GATE_LIBRARY_HEIGHT, flexShrink: 0 }}
       >
-        {/* Recent gates section (above search) */}
-        {renderRecentGates()}
-
         {/* Header row: Title and Search */}
         <div className="flex items-center gap-4 mb-3">
           <span className="text-lg font-bold text-white uppercase shrink-0 tracking-tight">

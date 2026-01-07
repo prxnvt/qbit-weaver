@@ -27,11 +27,11 @@ import { AlgorithmSidebar } from './components/AlgorithmSidebar';
 import { InfoBox, HoverInfo } from './components/InfoBox';
 import { runCircuitWithMeasurements, getBlochVector, validateCircuit, ValidationError, CircuitSimulationResult } from './utils/quantum';
 import { SimulationTimeline } from './components/SimulationTimeline';
+import { MeasurementPanel } from './components/MeasurementPanel';
 import { AlgorithmTemplate } from './data/algorithms';
 import { useCircuitHistory } from './hooks/useCircuitHistory';
 import { useSelection } from './hooks/useSelection';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { useRecentGates } from './hooks/useRecentGates';
 
 interface PendingAngleInput {
   row: number;
@@ -134,9 +134,6 @@ const App: React.FC = () => {
     clearSelection,
     isSelected,
   } = useSelection(MAX_ROWS, grid[0]?.length ?? INITIAL_COLS);
-
-  // Recent gates tracking
-  const { recentGates, addRecentGate } = useRecentGates();
 
   // Hover handlers for InfoBox
   const handleGateHover = useCallback((gate: GateType | null, params?: GateParams) => {
@@ -347,9 +344,7 @@ const App: React.FC = () => {
       }
       return newGrid;
     });
-    // Track gate usage for recent gates
-    addRecentGate(type);
-  }, [pushState, addRecentGate]);
+  }, [pushState]);
 
   // Helper to update spanning gate span (used during resize) - works for REVERSE and arithmetic gates
   const updateSpanningGateSpan = useCallback((col: number, anchorRow: number, newStartRow: number, newEndRow: number, gateType: GateType) => {
@@ -475,7 +470,6 @@ const App: React.FC = () => {
     grid,
     pushState,
     deleteSpanningGate,
-    addRecentGate,
   });
 
   // Save snapshot when drag starts (resizingGate becomes non-null)
@@ -640,8 +634,6 @@ const App: React.FC = () => {
 
         return newGrid;
       });
-      // Track gate usage for recent gates (move operation)
-      addRecentGate(type);
       return;
     }
 
@@ -1072,13 +1064,6 @@ const App: React.FC = () => {
             <span>Step Mode</span>
           </button>
 
-          {/* Measurement Results */}
-          {hasRun && measurements.length > 0 && !stepMode && (
-            <div className="text-xs text-white">
-              Measurements: {measurements.map(m => `q${m.qubit}=${m.result}`).join(', ')}
-            </div>
-          )}
-
           {/* Undo Button */}
           <button
             onClick={undo}
@@ -1436,6 +1421,15 @@ const App: React.FC = () => {
                     />
                   </div>
                 )}
+
+                {/* Measurement Panel - to the right of amplitude grid */}
+                {hasRun && measurements.length > 0 && (
+                  <MeasurementPanel
+                    measurements={measurements}
+                    numRows={MAX_ROWS}
+                    rowHeight={ROW_HEIGHT}
+                  />
+                )}
               </div>
             </div>
 
@@ -1461,12 +1455,11 @@ const App: React.FC = () => {
             onHoverGate={handleGateHover}
             customGates={customGates}
             onAddCustomGate={handleAddCustomGate}
-            recentGates={recentGates}
           />
         </div>
 
         {/* Right: Algorithm Templates Sidebar + InfoBox */}
-        <div className="flex flex-col shrink-0" style={{ width: 288 }}>
+        <div className="flex flex-col shrink-0" style={{ width: 340 }}>
           <AlgorithmSidebar
             onHoverTemplate={handleTemplateHover}
             onDragStart={setDraggingTemplate}
