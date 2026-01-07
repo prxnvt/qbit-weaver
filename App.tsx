@@ -788,9 +788,19 @@ const App: React.FC = () => {
         const newGrid = prev.map(r => r.map(c => ({...c})));
         const totalRows = newGrid.length;
 
-        // Clear source cell
-        newGrid[sourceRow][sourceCol].gate = null;
-        newGrid[sourceRow][sourceCol].params = undefined;
+        // Clear source cell(s) - for spanning gates, clear ALL cells in the span
+        if (isResizableSpanningGate(type) && existingParams?.reverseSpan) {
+          const srcSpan = existingParams.reverseSpan;
+          for (let r = srcSpan.startRow; r <= srcSpan.endRow; r++) {
+            if (newGrid[r]?.[sourceCol]) {
+              newGrid[r][sourceCol].gate = null;
+              newGrid[r][sourceCol].params = undefined;
+            }
+          }
+        } else {
+          newGrid[sourceRow][sourceCol].gate = null;
+          newGrid[sourceRow][sourceCol].params = undefined;
+        }
 
         // Place target cell (same logic as handleDrop)
         const isFixed2x1 = isAllFixed2x1Gate(type);
@@ -815,12 +825,29 @@ const App: React.FC = () => {
             params: { ...existingParams, reverseSpan: fixedSpan, isSpanContinuation: true }
           };
         } else if (isResizableSpanning) {
-          const reverseSpan = existingParams?.reverseSpan || { startRow: row, endRow: row };
+          // Calculate span size from existing params (preserve the size during move)
+          const oldSpan = existingParams?.reverseSpan;
+          const spanSize = oldSpan ? (oldSpan.endRow - oldSpan.startRow) : 0;
+
+          // Create new span at drop location, clamped to grid bounds
+          const newEndRow = Math.min(row + spanSize, totalRows - 1);
+          const newSpan = { startRow: row, endRow: newEndRow };
+
+          // Place anchor cell
           newGrid[row][col] = {
             ...newGrid[row][col],
             gate: type,
-            params: { ...existingParams, reverseSpan, isSpanContinuation: false }
+            params: { ...existingParams, reverseSpan: newSpan, isSpanContinuation: false }
           };
+
+          // Place continuation cells
+          for (let r = row + 1; r <= newEndRow; r++) {
+            newGrid[r][col] = {
+              ...newGrid[r][col],
+              gate: type,
+              params: { ...existingParams, reverseSpan: newSpan, isSpanContinuation: true }
+            };
+          }
         } else {
           newGrid[row][col] = {
             ...newGrid[row][col],
