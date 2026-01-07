@@ -524,13 +524,28 @@ const App: React.FC = () => {
           params: { ...params, reverseSpan: fixedSpan, isSpanContinuation: true }
         };
       } else if (isResizableSpanning) {
-        // REVERSE gate - can have variable span
-        const reverseSpan = params?.reverseSpan || { startRow: row, endRow: row };
+        // Resizable spanning gate - calculate span at new position
+        // Preserve span size if moving, otherwise start as single cell
+        const oldSpan = params?.reverseSpan;
+        const spanSize = oldSpan ? (oldSpan.endRow - oldSpan.startRow) : 0;
+        const newEndRow = Math.min(row + spanSize, totalRows - 1);
+        const reverseSpan = { startRow: row, endRow: newEndRow };
+
+        // Place anchor cell
         newGrid[row][dropCol] = {
           ...newGrid[row][dropCol],
           gate: type,
           params: { ...params, reverseSpan, isSpanContinuation: false }
         };
+
+        // Place continuation cells for the rest of the span
+        for (let r = row + 1; r <= newEndRow; r++) {
+          newGrid[r][dropCol] = {
+            ...newGrid[r][dropCol],
+            gate: type,
+            params: { ...params, reverseSpan, isSpanContinuation: true }
+          };
+        }
       } else {
         // Regular single-cell gate
         newGrid[row][dropCol] = {
@@ -1613,11 +1628,45 @@ const App: React.FC = () => {
                               return; // Can't place 2x1 gate on row 7
                             }
 
+                            const sourceCellId = e.dataTransfer.getData('sourceCellId');
                             const paramsStr = e.dataTransfer.getData('gateParams');
                             const existingParams = paramsStr ? JSON.parse(paramsStr) as GateParams : undefined;
 
                             // Add one column and drop the gate
                             const dropCol = displayColCount;
+
+                            // If moving from another cell, clear source cells first
+                            if (sourceCellId) {
+                              const parts = sourceCellId.split('-');
+                              const sourceRow = parseInt(parts[1], 10);
+                              const sourceCol = parseInt(parts[2], 10);
+
+                              // Clear source cells for spanning gates
+                              const oldSpan = existingParams?.reverseSpan;
+                              if (oldSpan) {
+                                pushState(prev => {
+                                  const newGrid = prev.map(r => r.map(c => ({...c})));
+                                  for (let r = oldSpan.startRow; r <= oldSpan.endRow; r++) {
+                                    if (newGrid[r]?.[sourceCol]) {
+                                      newGrid[r][sourceCol].gate = null;
+                                      newGrid[r][sourceCol].params = undefined;
+                                    }
+                                  }
+                                  return newGrid;
+                                });
+                              } else {
+                                // Clear single source cell
+                                pushState(prev => {
+                                  const newGrid = prev.map(r => r.map(c => ({...c})));
+                                  if (newGrid[sourceRow]?.[sourceCol]) {
+                                    newGrid[sourceRow][sourceCol].gate = null;
+                                    newGrid[sourceRow][sourceCol].params = undefined;
+                                  }
+                                  return newGrid;
+                                });
+                              }
+                            }
+
                             setGrid((prev: CircuitGrid) => {
                               const currentCols = prev[0]?.length ?? INITIAL_COLS;
                               if (dropCol < currentCols) return prev;
