@@ -712,3 +712,26 @@ export interface SimulationWarning {
   /** Warning category for filtering/styling */
   category: 'missing_input' | 'invalid_operation' | 'no_effect';
 }
+
+// ============================================================================
+// Circuit File Format (for save/load)
+// ============================================================================
+
+/** Metadata for a saved circuit file */
+export interface CircuitFileMetadata {
+  name: string;
+  description?: string;
+  createdAt: string;
+}
+
+/** Complete circuit file format for import/export */
+export interface CircuitFile {
+  version: string;
+  metadata: CircuitFileMetadata;
+  circuit: {
+    rows: number;
+    cols: number;
+    grid: Cell[][];
+  };
+  customGates?: CustomGateDefinition[];
+}

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Undo2, Redo2, X } from 'lucide-react';
+import { Undo2, Redo2, X, Download, Upload } from 'lucide-react';
 import {
   GateType,
   CircuitGrid,
@@ -31,6 +31,7 @@ import { CustomGateDialog } from './components/CustomGateDialog';
 import { AlgorithmSidebar } from './components/AlgorithmSidebar';
 import { InfoBox, HoverInfo } from './components/InfoBox';
 import { runCircuitWithMeasurements, getBlochVector, validateCircuit, ValidationError, CircuitSimulationResult } from './utils/quantum';
+import { downloadCircuitFile, readCircuitFile } from './utils/circuitSerializer';
 import { SimulationTimeline } from './components/SimulationTimeline';
 import { MeasurementPanel } from './components/MeasurementPanel';
 import { AlgorithmTemplate } from './data/algorithms';
@@ -418,6 +419,68 @@ const App: React.FC = () => {
     setStateHistory([]);
     setActiveColumns([]);
     setIsPlaying(false);
+  }, [pushState]);
+
+  // File input ref for loading circuits
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Save circuit to file
+  const handleSaveCircuit = useCallback(() => {
+    downloadCircuitFile(grid, customGates, undefined, {
+      name: 'circuit',
+      description: 'Quantum circuit exported from QCVO',
+    });
+  }, [grid, customGates]);
+
+  // Load circuit from file
+  const handleLoadCircuit = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const circuitFile = await readCircuitFile(file);
+
+      // Ensure grid has at least MAX_ROWS rows
+      const loadedGrid = circuitFile.circuit.grid;
+      const paddedGrid: CircuitGrid = [];
+
+      for (let r = 0; r < Math.max(MAX_ROWS, loadedGrid.length); r++) {
+        if (r < loadedGrid.length) {
+          paddedGrid.push(loadedGrid[r]);
+        } else {
+          // Add empty rows to reach MAX_ROWS
+          const cols = loadedGrid[0]?.length ?? INITIAL_COLS;
+          paddedGrid.push(
+            Array(cols).fill(null).map((_, c) => ({
+              gate: null,
+              id: `cell-${r}-${c}`
+            }))
+          );
+        }
+      }
+
+      pushState(paddedGrid);
+
+      // Load custom gates if present
+      if (circuitFile.customGates && circuitFile.customGates.length > 0) {
+        setCustomGates(circuitFile.customGates);
+      }
+
+      // Reset simulation state
+      setHasRun(false);
+      setFinalState(null);
+      setMeasurements([]);
+      setStepIndex(0);
+      setStateHistory([]);
+      setActiveColumns([]);
+      setIsPlaying(false);
+    } catch (error) {
+      console.error('Failed to load circuit:', error);
+      alert(error instanceof Error ? error.message : 'Failed to load circuit file');
+    }
+
+    // Reset the file input so the same file can be loaded again
+    event.target.value = '';
   }, [pushState]);
 
   // Step mode handlers
@@ -1809,6 +1872,38 @@ const App: React.FC = () => {
               >
                 <span>Clear</span>
               </button>
+
+              {/* Divider */}
+              <div className="w-px h-6 bg-white/30" />
+
+              {/* Save Button */}
+              <button
+                onClick={handleSaveCircuit}
+                className="flex items-center gap-2 px-3 py-1.5 border-2 border-white hover:bg-green-600 hover:border-green-600 hover:text-white transition-colors text-sm font-bold uppercase"
+                title="Save circuit to file"
+              >
+                <Download size={16} />
+                <span>Save</span>
+              </button>
+
+              {/* Load Button */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-3 py-1.5 border-2 border-white hover:bg-blue-600 hover:border-blue-600 hover:text-white transition-colors text-sm font-bold uppercase"
+                title="Load circuit from file"
+              >
+                <Upload size={16} />
+                <span>Load</span>
+              </button>
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json,.qbw.json"
+                onChange={handleLoadCircuit}
+                className="hidden"
+              />
             </div>
           </section>
 
