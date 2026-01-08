@@ -145,8 +145,6 @@ const App: React.FC = () => {
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [customGates, setCustomGates] = useState<CustomGateDefinition[]>([]);
 
-  // Header modal state (Info, Help, Account)
-  const [activeModal, setActiveModal] = useState<'info' | 'help' | 'account' | null>(null);
 
   // Run workflow state
   const [hasRun, setHasRun] = useState(false);
@@ -1433,28 +1431,32 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Info Button */}
+          {/* Save Button */}
           <button
-            onClick={() => setActiveModal('info')}
+            onClick={handleSaveCircuit}
             className="flex items-center gap-2 px-4 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors text-base font-bold uppercase"
+            title="Save circuit to file"
+          >
+            <Download size={18} />
+            <span>Save</span>
+          </button>
+
+          {/* Upload Button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 px-4 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors text-base font-bold uppercase"
+            title="Load circuit from file"
+          >
+            <Upload size={18} />
+            <span>Upload</span>
+          </button>
+
+          {/* Info Button (disabled) */}
+          <button
+            disabled
+            className="flex items-center gap-2 px-4 py-2 border-2 border-white/30 text-white/30 cursor-not-allowed text-base font-bold uppercase"
           >
             <span>Info</span>
-          </button>
-
-          {/* Help Button */}
-          <button
-            onClick={() => setActiveModal('help')}
-            className="flex items-center gap-2 px-4 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors text-base font-bold uppercase"
-          >
-            <span>Help</span>
-          </button>
-
-          {/* Account Button */}
-          <button
-            onClick={() => setActiveModal('account')}
-            className="flex items-center gap-2 px-4 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors text-base font-bold uppercase"
-          >
-            <span>Account</span>
           </button>
         </div>
       </header>
@@ -1873,30 +1875,7 @@ const App: React.FC = () => {
                 <span>Clear</span>
               </button>
 
-              {/* Divider */}
-              <div className="w-px h-6 bg-white/30" />
-
-              {/* Save Button */}
-              <button
-                onClick={handleSaveCircuit}
-                className="flex items-center gap-2 px-3 py-1.5 border-2 border-white hover:bg-green-600 hover:border-green-600 hover:text-white transition-colors text-sm font-bold uppercase"
-                title="Save circuit to file"
-              >
-                <Download size={16} />
-                <span>Save</span>
-              </button>
-
-              {/* Load Button */}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 px-3 py-1.5 border-2 border-white hover:bg-blue-600 hover:border-blue-600 hover:text-white transition-colors text-sm font-bold uppercase"
-                title="Load circuit from file"
-              >
-                <Upload size={16} />
-                <span>Load</span>
-              </button>
-
-              {/* Hidden file input */}
+              {/* Hidden file input for header Upload button */}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -1951,38 +1930,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Info/Help/Account Modal */}
-      {activeModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={() => setActiveModal(null)}
-        >
-          <div
-            className="bg-neutral-900 border-2 border-white rounded-lg p-6 shadow-xl max-w-md w-full mx-4 relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Close button */}
-            <button
-              onClick={() => setActiveModal(null)}
-              className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
-            >
-              <X size={24} />
-            </button>
-
-            {/* Title */}
-            <h2 className="text-2xl font-bold text-white uppercase mb-6">
-              {activeModal === 'info' && 'Info'}
-              {activeModal === 'help' && 'Help'}
-              {activeModal === 'account' && 'Account'}
-            </h2>
-
-            {/* Content */}
-            <div className="text-white/70 text-center py-8">
-              To be implemented
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
