@@ -319,7 +319,6 @@ const App: React.FC = () => {
       setHoverInfo({
         type: 'template',
         name: template.name,
-        description: template.description,
         qubits: template.qubits,
         category: template.category
       });

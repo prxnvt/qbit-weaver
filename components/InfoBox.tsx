@@ -8,7 +8,7 @@ export type HoverInfo =
   | { type: 'bloch'; qubit: number; state: string; vector: [number, number, number] }
   | { type: 'amplitude'; basisState: string; probability: number; magnitude: number; phase: number }
   | { type: 'percentage'; qubit: number; probability: number }
-  | { type: 'template'; name: string; description: string; qubits: number; category: string }
+  | { type: 'template'; name: string; qubits: number; category: string }
   | { type: 'none' };
 
 interface InfoBoxProps {
@@ -212,16 +212,14 @@ function PercentageContent({ qubit, probability }: { qubit: number; probability:
 }
 
 // Template info content
-function TemplateContent({ name, description, qubits, category }: {
+function TemplateContent({ name, qubits, category }: {
   name: string;
-  description: string;
   qubits: number;
   category: string;
 }) {
   return (
     <div>
       <div className="text-white font-bold">{name}</div>
-      <div className="text-white/70 text-sm mt-1 leading-relaxed">{description}</div>
       <div className="mt-3 flex gap-4 text-sm">
         <div>
           <span className="text-white/60">Qubits:</span>{' '}
@@ -264,7 +262,6 @@ export const InfoBox: React.FC<InfoBoxProps> = ({ info }) => {
       case 'template':
         return <TemplateContent
           name={info.name}
-          description={info.description}
           qubits={info.qubits}
           category={info.category}
         />;
