@@ -1,6 +1,6 @@
 # Qbit Weaver
 
-An interactive, browser-based quantum circuit builder and simulator for learning and experimenting with quantum computing fundamentals.
+An interactive, browser-based simple quantum computer simulator for learning and visualization.
 
 ## Overview
 
@@ -157,29 +157,6 @@ npm run test:coverage
 - **Simulation**: Column-by-column gate application on state vectors
 - **Qubit Ordering**: Big-endian (row 0 = MSB)
 - **Complex Numbers**: Custom implementation with re/im properties
-
-## Usage Guide
-
-### Building a Circuit
-
-1. **Add qubits**: Click the "+" button to add qubit wires
-2. **Place gates**: Drag gates from the library onto the circuit grid
-3. **Multi-qubit gates**: Place control markers (CONTROL) and targets (CX) on different wires in the same column
-4. **Parameterized gates**: When placing RX/RY/RZ gates, enter the rotation angle
-
-### Running Simulations
-
-1. Click **Run** to execute the circuit
-2. Bloch spheres appear showing each qubit's final state
-3. The amplitude grid displays the complete state vector
-4. Hover over Bloch spheres for detailed state information
-
-### Custom Gates
-
-1. Open the custom gate dialog from the gate library
-2. Enter the 2×2 unitary matrix elements (supports complex numbers)
-3. Name your gate and add it to the library
-4. Drag and place like any other gate
 
 ## License
 
