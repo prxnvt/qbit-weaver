@@ -53,8 +53,6 @@ QCVO provides a visual drag-and-drop interface for constructing quantum circuits
 | Styling | Tailwind CSS 3.4 |
 | Components | shadcn/ui (Radix UI) |
 | Testing | Vitest + React Testing Library |
-| Icons | Lucide React |
-| Font | JetBrains Mono |
 
 ## Getting Started
 
@@ -90,17 +88,6 @@ npm run build
 # Preview production build
 npm run preview
 ```
-
-## Available Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server on port 3000 |
-| `npm run build` | Create optimized production build |
-| `npm run preview` | Preview production build locally |
-| `npm test` | Run all tests |
-| `npm run test:watch` | Run tests in watch mode |
-| `npm run test:coverage` | Run tests with coverage report |
 
 ## Project Structure
 
