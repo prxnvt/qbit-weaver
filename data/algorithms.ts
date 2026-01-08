@@ -3,7 +3,6 @@ import { CircuitGrid, Cell, GateType, GateParams } from '../types';
 export interface AlgorithmTemplate {
   id: string;
   name: string;
-  description: string;
   category: 'Fundamental' | 'Entanglement' | 'Algorithms' | 'Error Correction' | 'Gates';
   qubits: number;
   grid: CircuitGrid;
@@ -303,7 +302,6 @@ export const ALGORITHM_TEMPLATES: AlgorithmTemplate[] = [
   {
     id: 'bell-state',
     name: 'Bell State (EPR Pair)',
-    description: 'Creates maximally entangled Bell state |Φ+⟩ = (|00⟩ + |11⟩)/√2',
     category: 'Entanglement',
     qubits: 2,
     grid: gridFromAscii(`
@@ -314,7 +312,6 @@ q1: --X
   {
     id: 'entangle-two-qubits',
     name: 'Entangle Two Qubits',
-    description: 'Basic entanglement: H creates superposition, CNOT entangles. Measuring one qubit instantly determines the other.',
     category: 'Entanglement',
     qubits: 2,
     grid: createGrid(2, [
@@ -331,7 +328,6 @@ q1: --X
   {
     id: 'ghz-state',
     name: 'GHZ State',
-    description: 'Creates 3-qubit GHZ state (|000⟩ + |111⟩)/√2',
     category: 'Entanglement',
     qubits: 3,
     grid: gridFromAscii(`
@@ -343,7 +339,6 @@ q2: ------X
   {
     id: 'w-state',
     name: 'W State',
-    description: 'Creates W state (|001⟩ + |010⟩ + |100⟩)/√3 using rotation gates',
     category: 'Entanglement',
     qubits: 3,
     grid: createGrid(3, [
@@ -363,7 +358,6 @@ q2: ------X
   {
     id: 'deutsch',
     name: 'Deutsch Algorithm',
-    description: 'Determines if a function is constant or balanced using one query',
     category: 'Algorithms',
     qubits: 2,
     grid: gridFromAscii(`
@@ -374,7 +368,6 @@ q1: X-H-X-H
   {
     id: 'deutsch-jozsa',
     name: 'Deutsch-Jozsa Algorithm',
-    description: 'Generalizes Deutsch algorithm to n-bit functions',
     category: 'Algorithms',
     qubits: 3,
     grid: gridFromAscii(`
@@ -386,7 +379,6 @@ q2: X-H-X-X-H
   {
     id: 'bernstein-vazirani',
     name: 'Bernstein-Vazirani Algorithm',
-    description: 'Finds hidden bit string with one query',
     category: 'Algorithms',
     qubits: 3,
     grid: gridFromAscii(`
@@ -397,8 +389,7 @@ q2: X-H-X-X-H
   },
   {
     id: 'grover-2qubit',
-    name: "Grover's Algorithm (2-qubit)",
-    description: 'Quantum search finding marked item in unstructured database',
+    name: "Grover's Algorithm",
     category: 'Algorithms',
     qubits: 2,
     grid: gridFromAscii(`
@@ -408,8 +399,7 @@ q1: H-X-H-X-X-X-H-M
   },
   {
     id: 'qft-3qubit',
-    name: 'Quantum Fourier Transform (3-qubit)',
-    description: 'Quantum version of discrete Fourier transform',
+    name: 'Quantum Fourier Transform',
     category: 'Algorithms',
     qubits: 3,
     grid: createGrid(3, [
@@ -435,7 +425,6 @@ q1: H-X-H-X-X-X-H-M
   {
     id: 'teleportation',
     name: 'Quantum Teleportation',
-    description: 'Teleports qubit state using entanglement and classical communication',
     category: 'Fundamental',
     qubits: 3,
     grid: createGrid(3, [
@@ -459,7 +448,6 @@ q1: H-X-H-X-X-X-H-M
   {
     id: 'superdense-coding',
     name: 'Superdense Coding',
-    description: 'Sends 2 classical bits using 1 qubit and shared entanglement',
     category: 'Fundamental',
     qubits: 2,
     grid: createGrid(2, [
@@ -479,7 +467,6 @@ q1: H-X-H-X-X-X-H-M
   {
     id: 'phase-kickback',
     name: 'Phase Kickback',
-    description: 'Demonstrates phase kickback phenomenon used in many quantum algorithms',
     category: 'Fundamental',
     qubits: 2,
     grid: gridFromAscii(`
@@ -492,7 +479,6 @@ q1: X-H-X-H
   {
     id: 'swap-decomposition',
     name: 'SWAP from CNOTs',
-    description: 'Implements SWAP gate using 3 CNOT gates',
     category: 'Gates',
     qubits: 2,
     grid: createGrid(2, [
@@ -507,7 +493,6 @@ q1: X-H-X-H
   {
     id: 'cz-decomposition',
     name: 'CZ from CNOTs',
-    description: 'Implements Controlled-Z using Hadamard and CNOT',
     category: 'Gates',
     qubits: 2,
     grid: gridFromAscii(`
@@ -518,7 +503,6 @@ q1: H-X-H
   {
     id: 'toffoli-demo',
     name: 'Toffoli Gate Demo',
-    description: 'Toffoli (CCX) gate with both controls in |1⟩ state',
     category: 'Gates',
     qubits: 3,
     grid: createGrid(3, [
@@ -534,7 +518,6 @@ q1: H-X-H
   {
     id: 'bit-flip-code',
     name: 'Bit Flip Code (Encode)',
-    description: 'Encodes 1 logical qubit into 3 physical qubits for bit-flip protection',
     category: 'Error Correction',
     qubits: 3,
     grid: gridFromAscii(`
@@ -546,7 +529,6 @@ q2: ----X
   {
     id: 'phase-flip-code',
     name: 'Phase Flip Code (Encode)',
-    description: 'Encodes 1 logical qubit for phase-flip error protection',
     category: 'Error Correction',
     qubits: 3,
     grid: createGrid(3, [
@@ -567,7 +549,6 @@ q2: ----X
   {
     id: 'modular-add-mod-r-demo',
     name: 'Add A mod R Demo',
-    description: 'Demonstrates +A%R: A=2 (rows 0-1), R=3 (rows 2-3), effect register (rows 4-5). Computes (1+2) mod 3 = 0.',
     category: 'Algorithms',
     qubits: 6,
     grid: createGrid(6, [
@@ -602,7 +583,6 @@ q2: ----X
   {
     id: 'modular-add-demo',
     name: 'Modular Addition Demo',
-    description: 'Demonstrates modular addition: reads A from qubits 0-1, adds to register at qubits 2-3. Values range 0-3 (mod 4).',
     category: 'Algorithms',
     qubits: 4,
     grid: createGrid(4, [
@@ -629,7 +609,6 @@ q2: ----X
   {
     id: 'modular-mul-demo',
     name: 'Modular Multiply Demo',
-    description: 'Demonstrates modular multiplication: reads A from qubits 0-1, multiplies register at qubits 2-3. A must be odd (1 or 3).',
     category: 'Algorithms',
     qubits: 4,
     grid: createGrid(4, [
@@ -657,7 +636,6 @@ q2: ----X
   {
     id: 'increment-demo',
     name: 'Increment/Decrement Demo',
-    description: 'Demonstrates INC and DEC gates on a 2-qubit register (values 0-3 mod 4).',
     category: 'Algorithms',
     qubits: 4,
     grid: createGrid(4, [
@@ -685,8 +663,7 @@ q2: ----X
   // --- Shor's Algorithm ---
   {
     id: 'shor-algorithm',
-    name: "Shor's Algorithm (Simplified)",
-    description: "Simplified Shor's algorithm for factoring. Uses controlled modular multiplication with QFT to find period r of a^x mod N. This demo shows the structure with 2-qubit registers.",
+    name: "Shor's Algorithm",
     category: 'Algorithms',
     qubits: 8,
     grid: createGrid(8, [

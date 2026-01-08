@@ -62,9 +62,6 @@ export const LoadDropdown: React.FC<LoadDropdownProps> = ({ onLoad }) => {
                   className="w-full px-3 py-2 text-left hover:bg-white hover:text-black transition-colors border-b border-gray-800 last:border-b-0"
                 >
                   <div className="text-sm font-bold">{template.name}</div>
-                  <div className="text-[10px] text-gray-400 group-hover:text-gray-600 mt-0.5 line-clamp-1">
-                    {template.description}
-                  </div>
                 </button>
               ))}
             </div>

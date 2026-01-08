@@ -51,9 +51,6 @@ export const AlgorithmSidebar: React.FC<AlgorithmSidebarProps> = ({ onHoverTempl
               className="px-3 py-2 border-b border-gray-800 cursor-grab active:cursor-grabbing select-none"
             >
               <div className="text-xl font-bold text-white">{template.name}</div>
-              <div className="text-sm text-gray-400 mt-0.5 line-clamp-2">
-                {template.description}
-              </div>
             </div>
           ))}
         </div>
