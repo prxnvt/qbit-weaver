@@ -81,11 +81,11 @@ function MatrixDisplay({ matrix }: { matrix: Complex[][] }) {
       <div className="flex">
         {/* Left bracket */}
         <div className="flex flex-col justify-center mr-1">
-          <span className="text-white/60">┌</span>
+          <span className="text-foreground/60">┌</span>
           {Array.from({ length: rows - 1 }).map((_, i) => (
-            <span key={i} className="text-white/60">│</span>
+            <span key={i} className="text-foreground/60">│</span>
           ))}
-          <span className="text-white/60">└</span>
+          <span className="text-foreground/60">└</span>
         </div>
 
         {/* Matrix content */}
@@ -107,11 +107,11 @@ function MatrixDisplay({ matrix }: { matrix: Complex[][] }) {
 
         {/* Right bracket */}
         <div className="flex flex-col justify-center ml-1">
-          <span className="text-white/60">┐</span>
+          <span className="text-foreground/60">┐</span>
           {Array.from({ length: rows - 1 }).map((_, i) => (
-            <span key={i} className="text-white/60">│</span>
+            <span key={i} className="text-foreground/60">│</span>
           ))}
-          <span className="text-white/60">┘</span>
+          <span className="text-foreground/60">┘</span>
         </div>
       </div>
     </div>
@@ -125,16 +125,16 @@ function GateContent({ gate, params }: { gate: GateType; params?: GateParams }) 
   if (!gateDef) {
     return (
       <div>
-        <div className="text-white font-bold">{gate}</div>
-        <div className="text-white/60 text-sm mt-1">Unknown gate type</div>
+        <div className="text-foreground font-bold">{gate}</div>
+        <div className="text-foreground/60 text-sm mt-1">Unknown gate type</div>
       </div>
     );
   }
 
   return (
     <div>
-      <div className="text-white font-bold">{gateDef.fullName}</div>
-      <div className="text-white/70 text-sm mt-1 leading-relaxed">{gateDef.description}</div>
+      <div className="text-foreground font-bold">{gateDef.fullName}</div>
+      <div className="text-foreground/70 text-sm mt-1 leading-relaxed">{gateDef.description}</div>
       {params?.angle !== undefined && (
         <div className="text-cyan-400 text-sm mt-2">
           θ = {params.angleExpression || params.angle.toFixed(4)}
@@ -151,14 +151,14 @@ function BlochContent({ qubit, state, vector }: { qubit: number; state: string; 
 
   return (
     <div>
-      <div className="text-white font-bold">Qubit |q{qubit}⟩</div>
+      <div className="text-foreground font-bold">Qubit |q{qubit}⟩</div>
       <div className="text-cyan-400 text-sm mt-2 font-mono">{state}</div>
       <div className="mt-3">
-        <div className="text-white/60 text-xs mb-1">Bloch Vector</div>
+        <div className="text-foreground/60 text-xs mb-1">Bloch Vector</div>
         <div className="grid grid-cols-3 gap-2 text-sm font-mono">
-          <div><span className="text-white/60">X:</span> <span className="text-white">{x.toFixed(3)}</span></div>
-          <div><span className="text-white/60">Y:</span> <span className="text-white">{y.toFixed(3)}</span></div>
-          <div><span className="text-white/60">Z:</span> <span className="text-white">{z.toFixed(3)}</span></div>
+          <div><span className="text-foreground/60">X:</span> <span className="text-foreground">{x.toFixed(3)}</span></div>
+          <div><span className="text-foreground/60">Y:</span> <span className="text-foreground">{y.toFixed(3)}</span></div>
+          <div><span className="text-foreground/60">Z:</span> <span className="text-foreground">{z.toFixed(3)}</span></div>
         </div>
       </div>
     </div>
@@ -174,19 +174,19 @@ function AmplitudeContent({ basisState, probability, magnitude, phase }: {
 }) {
   return (
     <div>
-      <div className="text-white font-bold">Basis State |{basisState}⟩</div>
+      <div className="text-foreground font-bold">Basis State |{basisState}⟩</div>
       <div className="mt-3 space-y-2 text-sm">
         <div className="flex justify-between">
-          <span className="text-white/60">Probability:</span>
+          <span className="text-foreground/60">Probability:</span>
           <span className="text-cyan-400 font-mono">{(probability * 100).toFixed(1)}%</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-white/60">Magnitude:</span>
-          <span className="text-white font-mono">{magnitude.toFixed(4)}</span>
+          <span className="text-foreground/60">Magnitude:</span>
+          <span className="text-foreground font-mono">{magnitude.toFixed(4)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-white/60">Phase:</span>
-          <span className="text-white font-mono">{phase.toFixed(1)}°</span>
+          <span className="text-foreground/60">Phase:</span>
+          <span className="text-foreground font-mono">{phase.toFixed(1)}°</span>
         </div>
       </div>
     </div>
@@ -197,13 +197,13 @@ function AmplitudeContent({ basisState, probability, magnitude, phase }: {
 function PercentageContent({ qubit, probability }: { qubit: number; probability: number }) {
   return (
     <div>
-      <div className="text-white font-bold">Qubit |q{qubit}⟩ Measurement</div>
-      <div className="text-white/70 text-sm mt-2">
+      <div className="text-foreground font-bold">Qubit |q{qubit}⟩ Measurement</div>
+      <div className="text-foreground/70 text-sm mt-2">
         Probability of measuring |1⟩ state
       </div>
       <div className="mt-3">
         <div className="text-3xl font-bold text-green-400">{probability.toFixed(1)}%</div>
-        <div className="text-white/60 text-sm mt-1">
+        <div className="text-foreground/60 text-sm mt-1">
           |0⟩: {(100 - probability).toFixed(1)}% · |1⟩: {probability.toFixed(1)}%
         </div>
       </div>
@@ -219,14 +219,14 @@ function TemplateContent({ name, qubits, category }: {
 }) {
   return (
     <div>
-      <div className="text-white font-bold">{name}</div>
+      <div className="text-foreground font-bold">{name}</div>
       <div className="mt-3 flex gap-4 text-sm">
         <div>
-          <span className="text-white/60">Qubits:</span>{' '}
+          <span className="text-foreground/60">Qubits:</span>{' '}
           <span className="text-cyan-400">{qubits}</span>
         </div>
         <div>
-          <span className="text-white/60">Category:</span>{' '}
+          <span className="text-foreground/60">Category:</span>{' '}
           <span className="text-purple-400">{category}</span>
         </div>
       </div>
@@ -237,7 +237,7 @@ function TemplateContent({ name, qubits, category }: {
 // Empty state content
 function EmptyContent() {
   return (
-    <div className="flex flex-col items-center justify-center h-full text-white/40">
+    <div className="flex flex-col items-center justify-center h-full text-foreground/40">
       <div className="text-sm">Hover over elements for details</div>
     </div>
   );
@@ -273,7 +273,7 @@ export const InfoBox: React.FC<InfoBoxProps> = ({ info }) => {
 
   return (
     <div
-      className="bg-black border-t-2 border-l-2 border-white/20 p-4 overflow-hidden"
+      className="bg-background border-t-2 border-l-2 border-foreground/20 p-4 overflow-hidden"
       style={{ width: 288, height: 200 }}
     >
       {renderContent()}

@@ -44,8 +44,8 @@ export const SimulationTimeline: React.FC<SimulationTimelineProps> = ({
         disabled={currentStep === 0}
         className={`p-1.5 transition-colors ${
           currentStep === 0
-            ? 'text-white/30 cursor-not-allowed'
-            : 'text-white hover:bg-white/20'
+            ? 'text-emerald-400/30 cursor-not-allowed'
+            : 'text-emerald-400 hover:bg-emerald-400/20'
         }`}
         title="Jump to start"
       >
@@ -58,8 +58,8 @@ export const SimulationTimeline: React.FC<SimulationTimelineProps> = ({
         disabled={currentStep === 0}
         className={`p-1.5 transition-colors ${
           currentStep === 0
-            ? 'text-white/30 cursor-not-allowed'
-            : 'text-white hover:bg-white/20'
+            ? 'text-emerald-400/30 cursor-not-allowed'
+            : 'text-emerald-400 hover:bg-emerald-400/20'
         }`}
         title="Step back"
       >
@@ -69,7 +69,7 @@ export const SimulationTimeline: React.FC<SimulationTimelineProps> = ({
       {/* Play/Pause/Replay */}
       <button
         onClick={onPlayPause}
-        className="p-1.5 transition-colors text-white hover:bg-white/20"
+        className="p-1.5 transition-colors text-emerald-400 hover:bg-emerald-400/20"
         title={isAtEnd && !isPlaying ? 'Replay' : isPlaying ? 'Pause' : 'Play'}
       >
         {isPlaying ? (
@@ -87,8 +87,8 @@ export const SimulationTimeline: React.FC<SimulationTimelineProps> = ({
         disabled={isAtEnd}
         className={`p-1.5 transition-colors ${
           isAtEnd
-            ? 'text-white/30 cursor-not-allowed'
-            : 'text-white hover:bg-white/20'
+            ? 'text-emerald-400/30 cursor-not-allowed'
+            : 'text-emerald-400 hover:bg-emerald-400/20'
         }`}
         title="Step forward"
       >
@@ -101,8 +101,8 @@ export const SimulationTimeline: React.FC<SimulationTimelineProps> = ({
         disabled={isAtEnd}
         className={`p-1.5 transition-colors ${
           isAtEnd
-            ? 'text-white/30 cursor-not-allowed'
-            : 'text-white hover:bg-white/20'
+            ? 'text-emerald-400/30 cursor-not-allowed'
+            : 'text-emerald-400 hover:bg-emerald-400/20'
         }`}
         title="Jump to end"
       >

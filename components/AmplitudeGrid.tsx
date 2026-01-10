@@ -95,14 +95,14 @@ const AmplitudeCell: React.FC<AmplitudeCellProps> = ({
       onMouseLeave={handleMouseLeave}
       style={{ display: 'block' }}
     >
-      {/* Cell background */}
+      {/* Cell background - Midnight Galaxy deep purple */}
       <rect
         x={0}
         y={0}
         width={size}
         height={size}
-        fill="#1a1a2e"
-        stroke="#333"
+        fill="#221836"
+        stroke="#4a4e8f"
         strokeWidth={1}
       />
 

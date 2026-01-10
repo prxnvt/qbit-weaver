@@ -4,25 +4,34 @@
 
 @layer base {
   :root {
-    --background: 0 0% 0%;
-    --foreground: 0 0% 100%;
-    --card: 0 0% 3%;
-    --card-foreground: 0 0% 100%;
-    --popover: 0 0% 3%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 0 0% 100%;
-    --primary-foreground: 0 0% 0%;
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 64%;
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 100%;
+    /* Midnight Galaxy Theme */
+    /* Deep Purple #2b1e3e - Rich dark base */
+    --background: 260 35% 18%;
+    /* Silver #e6e6fa - Light highlights and text */
+    --foreground: 240 67% 94%;
+    /* Slightly lighter purple for cards */
+    --card: 260 32% 22%;
+    --card-foreground: 240 67% 94%;
+    --popover: 260 32% 22%;
+    --popover-foreground: 240 67% 94%;
+    /* Silver for primary */
+    --primary: 240 67% 94%;
+    --primary-foreground: 260 35% 18%;
+    /* Cosmic Blue #4a4e8f - Mystical mid-tone */
+    --secondary: 237 32% 43%;
+    --secondary-foreground: 240 67% 94%;
+    /* Cosmic Blue muted */
+    --muted: 237 25% 35%;
+    --muted-foreground: 240 40% 75%;
+    /* Lavender #a490c2 - Soft accent color */
+    --accent: 264 31% 66%;
+    --accent-foreground: 260 35% 18%;
     --destructive: 0 62% 30%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
-    --ring: 0 0% 100%;
+    --destructive-foreground: 240 67% 94%;
+    /* Lavender tinted border */
+    --border: 264 20% 35%;
+    --input: 260 25% 30%;
+    --ring: 264 31% 66%;
     --radius: 0.25rem;
   }
 }
@@ -36,7 +45,7 @@
     @apply bg-background text-foreground font-mono;
   }
 
-  /* Custom scrollbar */
+  /* Custom scrollbar - Midnight Galaxy */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -47,11 +56,11 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #333;
+    background: #4a4e8f;
     border-radius: 4px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #555;
+    background: #a490c2;
   }
 }

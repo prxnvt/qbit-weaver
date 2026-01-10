@@ -168,10 +168,10 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
               key={type}
               draggable
               onDragStart={(e) => handleGateDragStart(e, type)}
-              className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-white/10 transition-colors"
+              className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-accent/20 transition-colors"
             >
               <Gate type={type} onHover={onHoverGate} isGateLibrary />
-              <span className="text-base font-bold text-white uppercase truncate">
+              <span className="text-base font-bold text-foreground uppercase truncate">
                 {GATE_DEFS[type]?.fullName || type}
               </span>
             </div>
@@ -205,7 +205,7 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
               key={customGate.label}
               draggable
               onDragStart={(e) => handleGateDragStart(e, GateType.CUSTOM, customParams)}
-              className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-white/10 transition-colors"
+              className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-accent/20 transition-colors"
             >
               <Gate
                 type={GateType.CUSTOM}
@@ -224,7 +224,7 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
   );
 
   const renderEmptySubLibrary = () => (
-    <div className="flex items-center justify-center h-32 text-white/50 text-sm">
+    <div className="flex items-center justify-center h-32 text-foreground/50 text-sm">
       No gates available
     </div>
   );
@@ -232,7 +232,7 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
   const renderSearchResults = () => {
     if (!searchResults || searchResults.length === 0) {
       return (
-        <div className="flex items-center justify-center h-32 text-white/50 text-sm">
+        <div className="flex items-center justify-center h-32 text-foreground/50 text-sm">
           No gates found
         </div>
       );
@@ -253,10 +253,10 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
                 key={type}
                 draggable
                 onDragStart={(e) => handleGateDragStart(e, type)}
-                className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-white/10 transition-colors"
+                className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-accent/20 transition-colors"
               >
                 <Gate type={type} onHover={onHoverGate} isGateLibrary />
-                <span className="text-xs font-bold text-white uppercase truncate">
+                <span className="text-xs font-bold text-foreground uppercase truncate">
                   {GATE_DEFS[type]?.fullName || type}
                 </span>
               </div>
@@ -284,12 +284,12 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
 
   return (
     <div
-      className="border-t-2 border-white bg-black px-4 pt-2 pb-4 z-10"
+      className="border-t-2 border-foreground bg-background px-4 pt-2 pb-4 z-10"
       style={{ height: GATE_LIBRARY_HEIGHT, minHeight: GATE_LIBRARY_HEIGHT, flexShrink: 0 }}
     >
       {/* Header row: Title, Search, and Sub-library tabs */}
       <div className="flex items-center gap-4 mb-2">
-        <span className="text-lg font-bold text-white uppercase shrink-0 tracking-tight">
+        <span className="text-lg font-bold text-foreground uppercase shrink-0 tracking-tight">
           Gate Library
         </span>
         <div className="relative max-w-xs">
@@ -299,12 +299,12 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
             placeholder="Search gates..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-7 bg-black border-white text-white placeholder:text-white/50 text-xs pr-7"
+            className="h-7 bg-background border-foreground text-foreground placeholder:text-foreground/50 text-xs pr-7"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-xs font-bold"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/70 hover:text-foreground text-xs font-bold"
               aria-label="Clear search"
             >
               X
@@ -320,8 +320,8 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
                 onClick={() => setActiveSubLibrary(lib)}
                 className={`px-2 py-1 text-base font-bold uppercase transition-colors ${
                   activeSubLibrary === lib
-                    ? 'bg-white text-black'
-                    : 'text-white hover:bg-white/20'
+                    ? 'bg-foreground text-background'
+                    : 'text-foreground hover:bg-accent/30'
                 }`}
               >
                 {lib}

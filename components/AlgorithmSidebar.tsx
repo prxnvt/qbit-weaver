@@ -23,19 +23,19 @@ export const AlgorithmSidebar: React.FC<AlgorithmSidebarProps> = ({ onHoverTempl
 
   return (
     <div
-      className="border-l-2 border-white bg-black h-full overflow-y-auto shrink-0"
+      className="border-l-2 border-foreground bg-background h-full overflow-y-auto shrink-0"
       style={{ width: SIDEBAR_WIDTH, minWidth: SIDEBAR_WIDTH }}
     >
       {/* Header */}
-      <div className="px-3 py-2 border-b-2 border-white sticky top-0 bg-black z-10">
-        <span className="text-lg font-bold text-white uppercase">Templates</span>
+      <div className="px-3 py-2 border-b-2 border-foreground sticky top-0 bg-background z-10">
+        <span className="text-lg font-bold text-foreground uppercase">Templates</span>
       </div>
 
       {/* Categories and Templates */}
       {CATEGORIES.map((category) => (
         <div key={category}>
           {/* Category Header */}
-          <div className="px-3 py-2 text-lg font-bold uppercase text-gray-400 bg-gray-900 border-b border-gray-800 sticky top-10 z-[5]">
+          <div className="px-3 py-2 text-lg font-bold uppercase text-muted-foreground bg-secondary border-b border-border sticky top-10 z-[5]">
             {category}
           </div>
 
@@ -48,9 +48,9 @@ export const AlgorithmSidebar: React.FC<AlgorithmSidebarProps> = ({ onHoverTempl
               onDragEnd={handleDragEnd}
               onMouseEnter={() => onHoverTemplate(template)}
               onMouseLeave={() => onHoverTemplate(null)}
-              className="px-3 py-2 border-b border-gray-800 cursor-grab active:cursor-grabbing select-none"
+              className="px-3 py-2 border-b border-border cursor-grab active:cursor-grabbing select-none hover:bg-accent/10"
             >
-              <div className="text-xl font-bold text-white">{template.name}</div>
+              <div className="text-xl font-bold text-foreground">{template.name}</div>
             </div>
           ))}
         </div>

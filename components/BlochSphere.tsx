@@ -114,11 +114,10 @@ export const BlochSphere: React.FC<BlochSphereProps> = ({ x, y, z, size = 48, ro
 
   return (
     <div
-      className={`relative rounded-full bg-black flex items-center justify-center shrink-0 ${!isExcited ? 'opacity-50' : ''}`}
+      className={`relative rounded-full bg-background flex items-center justify-center shrink-0 border border-foreground/60 ${!isExcited ? 'opacity-50' : ''}`}
       style={{
         width: size,
         height: size,
-        border: '1px solid rgba(255, 255, 255, 0.6)'
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}

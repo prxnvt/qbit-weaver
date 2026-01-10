@@ -45,71 +45,71 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
 
   // Custom Styles per Gate Type
   let content: React.ReactNode = type;
-  let specificStyles = "bg-black border-2 border-white text-white";
+  let specificStyles = "bg-background border-2 border-foreground text-foreground";
 
   if (type === GateType.I) {
       // Identity gate - wire through box
       content = (
         <div className="relative w-full h-full flex items-center justify-center">
           <div className="absolute w-full h-0.5 bg-neutral-500"></div>
-          <span className="text-neutral-400 text-sm bg-black px-1">I</span>
+          <span className="text-neutral-400 text-sm bg-background px-1">I</span>
         </div>
       );
-      specificStyles = "bg-black border-2 border-neutral-500 text-neutral-400";
+      specificStyles = "bg-background border-2 border-neutral-500 text-neutral-400";
   } else if (type === GateType.CONTROL) {
       // Filled circle for control (conditions on |1⟩)
-      content = <div className="w-4 h-4 rounded-full bg-white"></div>;
-      specificStyles = "bg-black border-2 border-white rounded-none";
+      content = <div className="w-4 h-4 rounded-full bg-foreground"></div>;
+      specificStyles = "bg-background border-2 border-foreground rounded-none";
   } else if (type === GateType.ANTI_CONTROL) {
       // Empty circle for anti-control (conditions on |0⟩)
-      content = <div className="w-4 h-4 rounded-full border-2 border-white bg-black"></div>;
-      specificStyles = "bg-black border-2 border-white rounded-none";
+      content = <div className="w-4 h-4 rounded-full border-2 border-foreground bg-background"></div>;
+      specificStyles = "bg-background border-2 border-foreground rounded-none";
   } else if (type === GateType.X_CONTROL) {
       // X-basis control (conditions on |+⟩)
       content = <span className="text-sm font-bold">XC</span>;
-      specificStyles = "bg-black border-2 border-orange-400 text-orange-400";
+      specificStyles = "bg-background border-2 border-orange-400 text-orange-400";
   } else if (type === GateType.X_ANTI_CONTROL) {
       // X-basis anti-control (conditions on |-⟩)
       content = <span className="text-sm font-bold">XA</span>;
-      specificStyles = "bg-black border-2 border-orange-400 text-orange-400";
+      specificStyles = "bg-background border-2 border-orange-400 text-orange-400";
   } else if (type === GateType.Y_CONTROL) {
       // Y-basis control (conditions on |+i⟩)
       content = <span className="text-sm font-bold">YC</span>;
-      specificStyles = "bg-black border-2 border-green-400 text-green-400";
+      specificStyles = "bg-background border-2 border-green-400 text-green-400";
   } else if (type === GateType.Y_ANTI_CONTROL) {
       // Y-basis anti-control (conditions on |-i⟩)
       content = <span className="text-sm font-bold">YA</span>;
-      specificStyles = "bg-black border-2 border-green-400 text-green-400";
+      specificStyles = "bg-background border-2 border-green-400 text-green-400";
   } else if (type === GateType.CX) {
       // CNOT target - circle with plus
       content = (
           <div className="relative w-8 h-8 flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full border-2 border-white"></div>
-              <div className="w-full h-0.5 bg-white"></div>
-              <div className="absolute h-full w-0.5 bg-white"></div>
+              <div className="absolute inset-0 rounded-full border-2 border-foreground"></div>
+              <div className="w-full h-0.5 bg-foreground"></div>
+              <div className="absolute h-full w-0.5 bg-foreground"></div>
           </div>
       );
-      specificStyles = "bg-black border-none text-white";
+      specificStyles = "bg-background border-none text-foreground";
   } else if (type === GateType.CZ) {
       content = <span className="text-sm font-bold">CZ</span>;
-      specificStyles = "bg-black border-2 border-white text-white";
+      specificStyles = "bg-background border-2 border-foreground text-foreground";
   } else if (type === GateType.SWAP) {
       content = <span className="text-lg">×</span>;
-      specificStyles = "bg-black border-2 border-white text-white";
+      specificStyles = "bg-background border-2 border-foreground text-foreground";
   } else if (type === GateType.CCX) {
       // Toffoli - shows as target with two dots indicator
       content = (
           <div className="relative w-8 h-8 flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full border-2 border-white"></div>
-              <div className="w-full h-0.5 bg-white"></div>
-              <div className="absolute h-full w-0.5 bg-white"></div>
+              <div className="absolute inset-0 rounded-full border-2 border-foreground"></div>
+              <div className="w-full h-0.5 bg-foreground"></div>
+              <div className="absolute h-full w-0.5 bg-foreground"></div>
               <div className="absolute -top-1 left-1/2 -translate-x-1/2 flex gap-0.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
-                <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-foreground"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-foreground"></div>
               </div>
           </div>
       );
-      specificStyles = "bg-black border-none text-white";
+      specificStyles = "bg-background border-none text-foreground";
   } else if (type === GateType.MEASURE) {
       // Measurement gate - meter icon style
       content = (
@@ -117,7 +117,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
           <span className="text-base font-bold">M</span>
         </div>
       );
-      specificStyles = "bg-black border-2 border-white text-white";
+      specificStyles = "bg-background border-2 border-foreground text-foreground";
   } else if (type === GateType.RX || type === GateType.RY || type === GateType.RZ) {
       // Rotation gates - show Rx, Ry, Rz with angle
       const axis = type.slice(1); // X, Y, or Z
@@ -133,7 +133,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
           )}
         </div>
       );
-      specificStyles = "bg-black border-2 border-cyan-400 text-cyan-400";
+      specificStyles = "bg-background border-2 border-cyan-400 text-cyan-400";
   } else if (
       type === GateType.RX_PI_2 || type === GateType.RX_PI_4 || type === GateType.RX_PI_8 || type === GateType.RX_PI_12 ||
       type === GateType.RY_PI_2 || type === GateType.RY_PI_4 || type === GateType.RY_PI_8 || type === GateType.RY_PI_12 ||
@@ -152,46 +152,46 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
           <span className="text-xs text-cyan-300 -mt-0.5">{angleLabel}</span>
         </div>
       );
-      specificStyles = "bg-black border-2 border-cyan-400 text-cyan-400";
+      specificStyles = "bg-background border-2 border-cyan-400 text-cyan-400";
   } else if (type === GateType.SDG) {
       // S-dagger gate
       content = <span className="text-sm font-bold">S†</span>;
-      specificStyles = "bg-black border-2 border-white text-white";
+      specificStyles = "bg-background border-2 border-foreground text-foreground";
   } else if (type === GateType.SQRT_X) {
       // Square root of X
       content = <span className="text-sm font-bold">√X</span>;
-      specificStyles = "bg-black border-2 border-white text-white";
+      specificStyles = "bg-background border-2 border-foreground text-foreground";
   } else if (type === GateType.SQRT_X_DG) {
       // Inverse square root of X
       content = <span className="text-sm font-bold">√X†</span>;
-      specificStyles = "bg-black border-2 border-white text-white";
+      specificStyles = "bg-background border-2 border-foreground text-foreground";
   } else if (type === GateType.SQRT_Y) {
       // Square root of Y
       content = <span className="text-sm font-bold">√Y</span>;
-      specificStyles = "bg-black border-2 border-white text-white";
+      specificStyles = "bg-background border-2 border-foreground text-foreground";
   } else if (type === GateType.SQRT_Y_DG) {
       // Inverse square root of Y
       content = <span className="text-sm font-bold">√Y†</span>;
-      specificStyles = "bg-black border-2 border-white text-white";
+      specificStyles = "bg-background border-2 border-foreground text-foreground";
   } else if (type === GateType.CUSTOM) {
       // Custom gate - show label or 'U'
       const label = params?.customLabel || 'U';
       content = <span className="text-sm font-bold">{label}</span>;
-      specificStyles = "bg-black border-2 border-purple-400 text-purple-400";
+      specificStyles = "bg-background border-2 border-purple-400 text-purple-400";
   } else if (type === GateType.REVERSE) {
       // Reverse gate - bit-reversal permutation
       content = <span className="text-sm font-bold">Rv</span>;
-      specificStyles = "bg-black border-2 border-yellow-400 text-yellow-400";
+      specificStyles = "bg-background border-2 border-yellow-400 text-yellow-400";
   } else if (type === GateType.PHASE_GRADIENT) {
       // Phase Gradient gate - yellow
       content = <span className="text-sm font-bold">PG</span>;
-      specificStyles = "bg-black border-2 border-yellow-400 text-yellow-400";
+      specificStyles = "bg-background border-2 border-yellow-400 text-yellow-400";
   }
   // ============================================================================
   // TIME-PARAMETERIZED GATES - Blue (Z^t, X^t, Y^t)
   // ============================================================================
   else if (isTimeParameterizedGate(type)) {
-      const blueBase = "bg-black border-2 border-blue-500 text-blue-400";
+      const blueBase = "bg-background border-2 border-blue-500 text-blue-400";
       specificStyles = blueBase;
 
       if (type === GateType.ZT) {
@@ -221,7 +221,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
   // INPUT-PARAMETERIZED GATES - Blue (Z^A, X^A, Y^A, Z^B, X^B, Y^B)
   // ============================================================================
   else if (isInputParameterizedGate(type)) {
-      const blueBase = "bg-black border-2 border-blue-500 text-blue-400";
+      const blueBase = "bg-background border-2 border-blue-500 text-blue-400";
       specificStyles = blueBase;
 
       if (type === GateType.ZA) {
@@ -272,7 +272,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
   // EXPONENTIAL GATES - Blue (e^Z, e^X, e^Y)
   // ============================================================================
   else if (isExponentialGate(type)) {
-      const blueBase = "bg-black border-2 border-blue-500 text-blue-400";
+      const blueBase = "bg-background border-2 border-blue-500 text-blue-400";
       specificStyles = blueBase;
 
       if (type === GateType.EXP_Z) {
@@ -302,7 +302,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
   // QFT GATES - Purple (QFT, QFT†)
   // ============================================================================
   else if (isQFTGate(type)) {
-      const purpleBase = "bg-black border-2 border-purple-500 text-purple-400";
+      const purpleBase = "bg-background border-2 border-purple-500 text-purple-400";
       specificStyles = purpleBase;
 
       if (type === GateType.QFT) {
@@ -320,7 +320,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
   // ARITHMETIC GATES - Dark Blue (inc/dec, mul/div)
   // ============================================================================
   else if (isArithmeticDarkBlueGate(type)) {
-      const darkBlueBase = "bg-black border-2 border-blue-600 text-blue-400";
+      const darkBlueBase = "bg-background border-2 border-blue-600 text-blue-400";
       specificStyles = darkBlueBase;
 
       // Column 1: Increment/Decrement
@@ -348,7 +348,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
   // ARITHMETIC GATES - Violet (comparison gates)
   // ============================================================================
   else if (isArithmeticVioletGate(type)) {
-      const violetBase = "bg-black border-2 border-violet-600 text-violet-400";
+      const violetBase = "bg-background border-2 border-violet-600 text-violet-400";
       specificStyles = violetBase;
 
       if (type === GateType.A_LT_B) {
@@ -369,7 +369,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
   // ARITHMETIC GATES - Lilac (mod gates)
   // ============================================================================
   else if (isArithmeticLilacGate(type)) {
-      const lilacBase = "bg-black border-2 border-purple-400 text-purple-300";
+      const lilacBase = "bg-background border-2 border-purple-400 text-purple-300";
       specificStyles = lilacBase;
 
       if (type === GateType.INC_MOD_R) {
@@ -420,7 +420,7 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
   // ARITHMETIC GATES - Pink (imaginary scalar gates)
   // ============================================================================
   else if (isArithmeticPinkGate(type)) {
-      const pinkBase = "bg-black border-2 border-pink-500 text-pink-400";
+      const pinkBase = "bg-background border-2 border-pink-500 text-pink-400";
       specificStyles = pinkBase;
 
       if (type === GateType.SCALE_I) {
@@ -438,11 +438,11 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
   // ============================================================================
   else if (isArithmeticInputGate(type)) {
       // Dashed border style for input markers
-      const inputMarkerBase = "bg-black border-2 border-dashed text-gray-300";
+      const inputMarkerBase = "bg-background border-2 border-dashed text-gray-300";
 
       if (type === GateType.INPUT_A) {
           content = <span className="text-sm font-bold">A</span>;
-          specificStyles = `${inputMarkerBase} border-white`;
+          specificStyles = `${inputMarkerBase} border-foreground`;
       } else if (type === GateType.INPUT_B) {
           content = <span className="text-sm font-bold">B</span>;
           specificStyles = `${inputMarkerBase} border-green-500`;
@@ -471,11 +471,11 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
           </svg>
         </div>
       );
-      specificStyles = "bg-black border-2 border-emerald-500 text-emerald-400";
+      specificStyles = "bg-background border-2 border-emerald-500 text-emerald-400";
   }
   else if (type === GateType.PERCENT_VIS) {
       content = <span className="text-base font-bold">%</span>;
-      specificStyles = "bg-black border-2 border-emerald-500 text-emerald-400";
+      specificStyles = "bg-background border-2 border-emerald-500 text-emerald-400";
   }
 
   return (

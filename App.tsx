@@ -108,7 +108,7 @@ const TimeParameterDisplay: React.FC<{
 
   return (
     <span
-      className={`text-base font-bold uppercase ${isFrozen ? 'text-blue-400 cursor-pointer hover:underline' : 'text-white'}`}
+      className={`text-base font-bold uppercase ${isFrozen ? 'text-blue-400 cursor-pointer hover:underline' : 'text-foreground'}`}
       onClick={handleClick}
       title={isFrozen ? 'Click to set time value (0-1)' : undefined}
     >
@@ -1165,7 +1165,7 @@ const App: React.FC = () => {
     const isResizable = isResizableSpanningGate(gateType);
 
     // Error background class
-    const errorBgClass = hasError ? 'bg-red-600' : 'bg-black';
+    const errorBgClass = hasError ? 'bg-red-600' : 'bg-background';
 
     const handleResizeMouseDown = (edge: 'top' | 'bottom') => (e: React.MouseEvent) => {
       e.preventDefault();
@@ -1273,7 +1273,7 @@ const App: React.FC = () => {
         lines.push(
              <div
                 key={`line-swap-${colIdx}-${i}`}
-                className="absolute w-0.5 bg-white z-0 pointer-events-none"
+                className="absolute w-0.5 bg-accent z-0 pointer-events-none"
                 style={{
                     left: '50%',
                     top: `${start * ROW_HEIGHT + ROW_HEIGHT / 2}px`,
@@ -1293,7 +1293,7 @@ const App: React.FC = () => {
         lines.push(
             <div
                 key={`line-ctrl-${colIdx}`}
-                className="absolute w-0.5 bg-white z-0 pointer-events-none"
+                className="absolute w-0.5 bg-accent z-0 pointer-events-none"
                 style={{
                     left: '50%',
                     top: `${minR * ROW_HEIGHT + ROW_HEIGHT / 2}px`,
@@ -1361,10 +1361,10 @@ const App: React.FC = () => {
   }, [undo, redo]);
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-black text-white overflow-hidden font-mono font-bold">
+    <div className="flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden font-mono font-bold">
 
       {/* Header Bar */}
-      <header className="h-16 border-b-2 border-white bg-black flex items-center px-6 justify-between shrink-0 z-20">
+      <header className="h-16 border-b-2 border-foreground bg-background flex items-center px-6 justify-between shrink-0 z-20">
         <div className="flex items-center gap-6">
           {/* Logo */}
           <div className="flex items-center gap-2">
@@ -1379,10 +1379,10 @@ const App: React.FC = () => {
               stepMode
                 ? 'bg-emerald-600 border-emerald-600 text-white'
                 : hasTimeGates || isFrozen
-                  ? 'border-white/30 text-white/30 cursor-not-allowed'
+                  ? 'border-foreground/30 text-foreground/30 cursor-not-allowed'
                   : hasRun && stateHistory.length > 1
-                    ? 'border-white hover:bg-white hover:text-black'
-                    : 'border-white/30 text-white/30 cursor-not-allowed'
+                    ? 'border-foreground hover:bg-foreground hover:text-background'
+                    : 'border-foreground/30 text-foreground/30 cursor-not-allowed'
             }`}
             title={hasTimeGates ? 'Step mode unavailable with time-parameterized gates' : isFrozen ? 'Unfreeze to enable step mode' : 'Toggle step-through simulation mode'}
           >
@@ -1411,8 +1411,8 @@ const App: React.FC = () => {
               isFrozen
                 ? 'bg-blue-600 border-blue-600 text-white'
                 : stepMode || !hasTimeGates
-                  ? 'border-white/30 text-white/30 cursor-not-allowed'
-                  : 'border-white hover:bg-white hover:text-black'
+                  ? 'border-foreground/30 text-foreground/30 cursor-not-allowed'
+                  : 'border-foreground hover:bg-foreground hover:text-background'
             }`}
             title={stepMode ? 'Freeze unavailable in step mode' : !hasTimeGates ? 'No time-parameterized gates in circuit' : 'Freeze/unfreeze time parameter animation'}
           >
@@ -1433,7 +1433,7 @@ const App: React.FC = () => {
           {/* Save Button */}
           <button
             onClick={handleSaveCircuit}
-            className="flex items-center gap-2 px-4 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors text-base font-bold uppercase"
+            className="flex items-center gap-2 px-4 py-2 border-2 border-foreground hover:bg-foreground hover:text-background transition-colors text-base font-bold uppercase"
             title="Save circuit to file"
           >
             <Download size={18} />
@@ -1443,7 +1443,7 @@ const App: React.FC = () => {
           {/* Upload Button */}
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors text-base font-bold uppercase"
+            className="flex items-center gap-2 px-4 py-2 border-2 border-foreground hover:bg-foreground hover:text-background transition-colors text-base font-bold uppercase"
             title="Load circuit from file"
           >
             <Upload size={18} />
@@ -1453,7 +1453,7 @@ const App: React.FC = () => {
           {/* Info Button (disabled) */}
           <button
             disabled
-            className="flex items-center gap-2 px-4 py-2 border-2 border-white/30 text-white/30 cursor-not-allowed text-base font-bold uppercase"
+            className="flex items-center gap-2 px-4 py-2 border-2 border-foreground/30 text-foreground/30 cursor-not-allowed text-base font-bold uppercase"
           >
             <span>Info</span>
           </button>
@@ -1467,7 +1467,7 @@ const App: React.FC = () => {
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
           {/* Circuit Area - Scrollable, takes remaining space */}
-          <section className="flex-1 relative bg-black min-h-0">
+          <section className="flex-1 relative bg-background min-h-0">
             {/* Scrollable content wrapper */}
             <div
               className="absolute inset-0 overflow-auto"
@@ -1518,7 +1518,7 @@ const App: React.FC = () => {
                   return (
                     <div key={`row-${rIdx}`} className="flex items-center group relative" style={{ height: ROW_HEIGHT }}>
                       {/* Qubit Label */}
-                      <div className="w-12 text-left font-mono font-bold text-sm text-white select-none">
+                      <div className="w-12 text-left font-mono font-bold text-sm text-foreground select-none">
                         |q{rIdx}⟩
                       </div>
 
@@ -1526,7 +1526,7 @@ const App: React.FC = () => {
                       <div className="relative flex items-center">
                         {/* Wire Line - spans only the gate cells */}
                         <div
-                          className="absolute top-1/2 left-0 h-0.5 bg-white pointer-events-none"
+                          className="absolute top-1/2 left-0 h-0.5 bg-accent pointer-events-none"
                           style={{
                             width: rowDisplayColCount * CELL_WIDTH,
                             transform: 'translateY(-50%)'
@@ -1577,7 +1577,7 @@ const App: React.FC = () => {
                                 onDragLeave={handleDragLeave}
                                 onDrop={(e) => handleDropEvent(e, rIdx, cIdx)}
                                 onContextMenu={(e) => clearCell(rIdx, cIdx, e)}
-                                className={`flex items-center justify-center relative transition-all duration-200 border-r border-white/35 cursor-pointer ${
+                                className={`flex items-center justify-center relative transition-all duration-200 border-r border-foreground/20 cursor-pointer ${
                                   isCellSelected
                                     ? 'ring-2 ring-cyan-400 ring-inset'
                                     : ''
@@ -1591,9 +1591,9 @@ const App: React.FC = () => {
                                             ? 'bg-yellow-400/60'
                                             : 'bg-yellow-400/30')
                                       : isHovered
-                                        ? 'bg-white/20'
+                                        ? 'bg-accent/30'
                                         : (isRowHighlighted || isColHighlighted)
-                                          ? 'bg-white/10'
+                                          ? 'bg-accent/15'
                                           : ''
                                 }`}
                                 style={{ height: ROW_HEIGHT, width: CELL_WIDTH }}
@@ -1755,7 +1755,7 @@ const App: React.FC = () => {
                           }}
                           className={`shrink-0 transition-colors ${
                             dragHover?.col === displayColCount && dragHover?.row === rIdx
-                              ? 'bg-white/20'
+                              ? 'bg-accent/30'
                               : templateDragHover?.col === displayColCount && draggingTemplate
                                 ? (() => {
                                     const dims = getTemplatePopulatedDimensions(draggingTemplate);
@@ -1776,7 +1776,7 @@ const App: React.FC = () => {
                           <div className="flex items-center ml-4 gap-4">
                             {/* Percentage of |1⟩ in a box with green fill from bottom */}
                             <div
-                              className="border-2 border-white/30 flex items-center justify-center font-bold text-white relative overflow-hidden cursor-pointer"
+                              className="border-2 border-foreground/30 flex items-center justify-center font-bold text-foreground relative overflow-hidden cursor-pointer"
                               style={{ width: GRID_CELL_SIZE, height: GRID_CELL_SIZE }}
                               onMouseEnter={() => setHoverInfo({ type: 'percentage', qubit: rIdx, probability: parseFloat(prob1Pct) })}
                               onMouseLeave={() => setHoverInfo({ type: 'none' })}
@@ -1835,15 +1835,15 @@ const App: React.FC = () => {
             </div>
 
             {/* Floating Undo/Redo/Clear Buttons - outside scrollable area */}
-            <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2 bg-black/90 border border-white/30 rounded-lg p-2 shadow-lg">
+            <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2 bg-background/90 border border-foreground/30 rounded-lg p-2 shadow-lg">
               {/* Undo Button */}
               <button
                 onClick={undo}
                 disabled={!canUndo}
                 className={`flex items-center gap-2 px-3 py-1.5 border-2 transition-colors text-sm font-bold uppercase ${
                   canUndo
-                    ? 'border-white hover:bg-white hover:text-black'
-                    : 'border-white/30 text-white/30 cursor-not-allowed'
+                    ? 'border-foreground hover:bg-foreground hover:text-background'
+                    : 'border-foreground/30 text-foreground/30 cursor-not-allowed'
                 }`}
                 title="Undo (Ctrl+Z)"
               >
@@ -1857,8 +1857,8 @@ const App: React.FC = () => {
                 disabled={!canRedo}
                 className={`flex items-center gap-2 px-3 py-1.5 border-2 transition-colors text-sm font-bold uppercase ${
                   canRedo
-                    ? 'border-white hover:bg-white hover:text-black'
-                    : 'border-white/30 text-white/30 cursor-not-allowed'
+                    ? 'border-foreground hover:bg-foreground hover:text-background'
+                    : 'border-foreground/30 text-foreground/30 cursor-not-allowed'
                 }`}
                 title="Redo (Ctrl+Shift+Z)"
               >
@@ -1869,7 +1869,7 @@ const App: React.FC = () => {
               {/* Clear Button */}
               <button
                 onClick={handleClear}
-                className="flex items-center gap-2 px-3 py-1.5 border-2 border-white hover:bg-red-600 hover:border-red-600 hover:text-white transition-colors text-sm font-bold uppercase"
+                className="flex items-center gap-2 px-3 py-1.5 border-2 border-foreground hover:bg-red-600 hover:border-red-600 hover:text-white transition-colors text-sm font-bold uppercase"
               >
                 <span>Clear</span>
               </button>

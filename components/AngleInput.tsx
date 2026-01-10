@@ -46,10 +46,10 @@ export const AngleInput: React.FC<AngleInputProps> = ({
 
   return (
     <div
-      className="fixed z-50 bg-neutral-900 border border-neutral-700 rounded-lg p-3 shadow-xl"
+      className="fixed z-50 bg-card border border-border rounded-lg p-3 shadow-xl"
       style={{ left: position.x, top: position.y }}
     >
-      <div className="text-xs text-neutral-400 mb-2">
+      <div className="text-xs text-muted-foreground mb-2">
         {gateType} angle (radians)
       </div>
       <div className="flex gap-2">
@@ -62,7 +62,7 @@ export const AngleInput: React.FC<AngleInputProps> = ({
           }}
           onKeyDown={handleKeyDown}
           placeholder="e.g., pi/4, 0.5"
-          className="w-32 bg-black border-neutral-600 text-white text-sm"
+          className="w-32 bg-background border-border text-foreground text-sm"
         />
         <Button
           onClick={handleSubmit}
@@ -75,7 +75,7 @@ export const AngleInput: React.FC<AngleInputProps> = ({
           onClick={onCancel}
           size="sm"
           variant="outline"
-          className="border-neutral-600 text-neutral-400 hover:text-white"
+          className="border-border text-muted-foreground hover:text-foreground"
         >
           Cancel
         </Button>
