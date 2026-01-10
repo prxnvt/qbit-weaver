@@ -26,8 +26,9 @@ dist-ssr
 .claude/
 refs/
 hooks/
-future-plans.md 
+future-plans.md
 .agents/
+.worktrees/
 
 node_modules/
 
