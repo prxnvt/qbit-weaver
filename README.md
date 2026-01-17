@@ -1,7 +1,6 @@
 # Qbit Weaver
-
-An interactive, browser-based simple quantum computer simulator for learning and visualization.
-[Qbit-Weaver](https://qbit-weaver.pages.dev)
+[Qbit-Weaver](https://qbit-weaver.pages.dev) 
+is an interactive, browser-based simple quantum computer simulator for learning and visualization. 
 
 ## Overview
 
