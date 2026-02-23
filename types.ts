@@ -134,9 +134,6 @@ export enum GateType {
   // Visualization gates (inline state display, act as identity)
   BLOCH_VIS = 'BLOCH_VIS',     // Mini Bloch sphere showing qubit state at position
   PERCENT_VIS = 'PERCENT_VIS', // Percentage bar showing |1⟩ probability at position
-
-  // Legacy (kept for compatibility, consider removing)
-  EMPTY = 'EMPTY'
 }
 
 // ============================================================================
@@ -312,9 +309,6 @@ export type ArithmeticFixed2x1Gate = ArrayElement<typeof ARITHMETIC_FIXED_2X1_GA
 export function isArithmeticFixed2x1Gate(gate: GateType): gate is ArithmeticFixed2x1Gate {
   return (ARITHMETIC_FIXED_2X1_GATES as readonly GateType[]).includes(gate);
 }
-
-/** @deprecated Use ARITHMETIC_FIXED_2X1_GATES instead */
-export const ARITHMETIC_SPANNING_GATES = ARITHMETIC_FIXED_2X1_GATES;
 
 /** Arithmetic input marker gates (fixed 2x1, non-resizable) */
 export const ARITHMETIC_INPUT_GATES = [
@@ -635,63 +629,6 @@ export interface Cell {
 }
 
 export type CircuitGrid = Cell[][];
-
-export interface QuantumState {
-  amplitude: Complex[];
-  numQubits: number;
-}
-
-/** Result of a single qubit measurement */
-export interface MeasurementOutcome {
-  qubit: number;
-  result: 0 | 1;
-  probability: number;
-}
-
-/** Complete result of circuit simulation */
-export interface SimulationResult {
-  /** Final quantum state after simulation */
-  finalState: QuantumState;
-  /** Bloch vector coordinates for each qubit [x, y, z] */
-  blochVectors: [number, number, number][];
-  /** Measurement outcomes (if any measurement gates were applied) */
-  measurements: MeasurementOutcome[];
-  /** Number of gates applied */
-  gateCount: number;
-  /** Simulation time in milliseconds */
-  simulationTimeMs: number;
-}
-
-/** Noise model configuration */
-export interface NoiseModel {
-  /** Probability of single-qubit gate error (0-1) */
-  singleQubitErrorRate: number;
-  /** Probability of two-qubit gate error (0-1) */
-  twoQubitErrorRate: number;
-  /** Probability of measurement error (0-1) */
-  measurementErrorRate: number;
-}
-
-/** Result of noisy simulation */
-export interface NoiseResult {
-  /** Noisy final state */
-  noisyState: QuantumState;
-  /** Noisy Bloch vectors */
-  noisyBlochVectors: [number, number, number][];
-  /** Fidelity between ideal and noisy state (0-1) */
-  fidelity: number;
-  /** Number of errors that occurred during simulation */
-  errorCount: number;
-  /** Breakdown of errors by gate type */
-  errorsByGateType: Record<GateType, number>;
-}
-
-/** Combined simulation output (ideal + noisy) */
-export interface FullSimulationResult {
-  ideal: SimulationResult;
-  noisy?: NoiseResult;
-  noiseModel?: NoiseModel;
-}
 
 /** A custom gate stored in the library */
 export interface CustomGateDefinition {

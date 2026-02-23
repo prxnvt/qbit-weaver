@@ -1252,7 +1252,7 @@ const App: React.FC = () => {
         // All control-type gates (CONTROL, ANTI_CONTROL, X_CONTROL, etc.)
         if (isControlGate(g)) controlRows.push(r);
         // Target gates are anything that's not a control or swap
-        if (g !== GateType.EMPTY && !isControlGate(g) && g !== GateType.SWAP) targetRows.push(r);
+        if (!isControlGate(g) && g !== GateType.SWAP) targetRows.push(r);
 
         // Collect arithmetic gate spans
         if (isAllFixed2x1Gate(g) && cell.params?.reverseSpan) {
@@ -1450,13 +1450,6 @@ const App: React.FC = () => {
             <span>Upload</span>
           </button>
 
-          {/* Info Button (disabled) */}
-          <button
-            disabled
-            className="flex items-center gap-2 px-4 py-2 border-2 border-foreground/30 text-foreground/30 cursor-not-allowed text-base font-bold uppercase"
-          >
-            <span>Info</span>
-          </button>
         </div>
       </header>
 

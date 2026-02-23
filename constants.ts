@@ -199,15 +199,6 @@ export const GATE_DEFS: Partial<Record<GateType, GateDef>> = {
     qubits: 1, // Handled specially in logic
     matrix: [[ONE, ZERO], [ZERO, ONE]]
   },
-  [GateType.EMPTY]: {
-    type: GateType.EMPTY,
-    label: '',
-    fullName: 'Identity',
-    description: 'Identity',
-    matrixLabel: 'I',
-    qubits: 1,
-    matrix: [[ONE, ZERO], [ZERO, ONE]]
-  },
   [GateType.I]: {
     type: GateType.I,
     label: 'I',
