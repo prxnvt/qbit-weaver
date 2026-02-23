@@ -11,6 +11,19 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
+      // Redirect the npm font CSS to our optimized version (WOFF2-only, fewer weights)
+      'computer-modern/cmu-typewriter-text.css': path.resolve(__dirname, 'fonts.css'),
     }
-  }
+  },
+  build: {
+    target: 'es2022',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-icons': ['lucide-react'],
+        },
+      },
+    },
+  },
 });
