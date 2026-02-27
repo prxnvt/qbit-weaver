@@ -1,0 +1,16 @@
+/* Optimized CMU Typewriter Text — WOFF2 only, used weights only */
+@font-face {
+  font-family: "CMU Typewriter Text";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("computer-modern/fonts/cmu-typewriter-text-500-roman.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "CMU Typewriter Text";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("computer-modern/fonts/cmu-typewriter-text-700-roman.woff2") format("woff2");
+}
