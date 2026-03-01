@@ -30,7 +30,7 @@ import { AngleInput } from './components/AngleInput';
 import { CustomGateDialog } from './components/CustomGateDialog';
 import { AlgorithmSidebar } from './components/AlgorithmSidebar';
 import { InfoBox, HoverInfo } from './components/InfoBox';
-import { runCircuitWithMeasurements, getBlochVector, validateCircuit, ValidationError, CircuitSimulationResult } from './utils/quantum';
+import { runCircuitWithMeasurements, getBlochVector, validateCircuit, ValidationError } from './utils/quantum';
 import { downloadCircuitFile, readCircuitFile } from './utils/circuitSerializer';
 import { SimulationTimeline } from './components/SimulationTimeline';
 import { MeasurementPanel } from './components/MeasurementPanel';
@@ -1399,7 +1399,6 @@ const App: React.FC = () => {
               onPlayPause={handlePlayPause}
               onStepForward={handleStepForward}
               onStepBack={handleStepBack}
-              activeColumns={activeColumns}
             />
           )}
 

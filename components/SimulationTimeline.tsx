@@ -16,8 +16,6 @@ export interface SimulationTimelineProps {
   onStepForward: () => void;
   /** Go back one step */
   onStepBack: () => void;
-  /** Active column indices (for labels) */
-  activeColumns: number[];
 }
 
 export const SimulationTimeline: React.FC<SimulationTimelineProps> = ({
