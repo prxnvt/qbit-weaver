@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Github } from 'lucide-react';
 
 interface InfoModalProps {
   onClose: () => void;
@@ -53,11 +53,28 @@ export const InfoModal: React.FC<InfoModalProps> = ({ onClose }) => {
           <X size={20} />
         </button>
 
-        {/* Tagline */}
+        {/* Header */}
         <h1 className="text-3xl font-bold text-foreground mb-2">Qbit Weaver</h1>
-        <p className="text-foreground/60 text-lg mb-10">
+        <p className="text-foreground/60 text-lg mb-4">
           A quantum computer simulator that runs in your browser!
         </p>
+
+        {/* Author & License */}
+        <div className="flex items-center gap-3 text-sm text-foreground/50 mb-10">
+          <span>MIT License</span>
+          <span className="text-foreground/20">·</span>
+          <span>© Pranav Turlapati</span>
+          <span className="text-foreground/20">·</span>
+          <a
+            href="https://github.com/prxnvt/qbit-weaver"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-foreground/50 hover:text-foreground transition-colors"
+          >
+            <Github size={14} />
+            GitHub
+          </a>
+        </div>
 
         {/* 3-column feature sections */}
         <div className="grid grid-cols-3 gap-6">
