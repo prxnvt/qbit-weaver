@@ -12,6 +12,10 @@ interface GateLibraryProps {
   onHoverGate: (type: GateType | null, params?: GateParams) => void;
   customGates: CustomGateDefinition[];
   onAddCustomGate: () => void;
+  /** Mobile: tap-to-select instead of drag */
+  onSelectGate?: (type: GateType, params?: GateParams) => void;
+  /** Mobile mode flag */
+  isMobile?: boolean;
 }
 
 // Sub-library categories
@@ -79,7 +83,7 @@ const ARITHMETIC_GATE_COLUMNS: GateType[][] = [
   [GateType.INPUT_B, GateType.INPUT_R, GateType.INPUT_A],
 ];
 
-export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGates, onAddCustomGate }) => {
+export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGates, onAddCustomGate, onSelectGate, isMobile = false }) => {
   const [activeSubLibrary, setActiveSubLibrary] = useState<SubLibrary>('Standard');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -166,12 +170,17 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
           {column.map((type) => (
             <div
               key={type}
-              draggable
-              onDragStart={(e) => handleGateDragStart(e, type)}
-              className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-accent/20 transition-colors"
+              draggable={!onSelectGate}
+              onDragStart={onSelectGate ? undefined : (e) => handleGateDragStart(e, type)}
+              onClick={onSelectGate ? () => onSelectGate(type) : undefined}
+              className={`flex items-center gap-2 group py-0.5 transition-colors ${
+                onSelectGate
+                  ? 'cursor-pointer active:bg-accent/30 min-h-[44px]'
+                  : 'cursor-grab active:cursor-grabbing hover:bg-accent/20'
+              }`}
             >
-              <Gate type={type} onHover={onHoverGate} isGateLibrary />
-              <span className="text-base font-bold text-foreground uppercase truncate">
+              <Gate type={type} onHover={onHoverGate} isGateLibrary isMobile={isMobile} />
+              <span className={`${isMobile ? 'text-sm' : 'text-base'} font-bold text-foreground uppercase truncate`}>
                 {GATE_DEFS[type]?.fullName || type}
               </span>
             </div>
@@ -203,17 +212,23 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
           return (
             <div
               key={customGate.label}
-              draggable
-              onDragStart={(e) => handleGateDragStart(e, GateType.CUSTOM, customParams)}
-              className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-accent/20 transition-colors"
+              draggable={!onSelectGate}
+              onDragStart={onSelectGate ? undefined : (e) => handleGateDragStart(e, GateType.CUSTOM, customParams)}
+              onClick={onSelectGate ? () => onSelectGate(GateType.CUSTOM, customParams) : undefined}
+              className={`flex items-center gap-2 group py-0.5 transition-colors ${
+                onSelectGate
+                  ? 'cursor-pointer active:bg-accent/30 min-h-[44px]'
+                  : 'cursor-grab active:cursor-grabbing hover:bg-accent/20'
+              }`}
             >
               <Gate
                 type={GateType.CUSTOM}
                 onHover={onHoverGate}
                 params={customParams}
                 isGateLibrary
+                isMobile={isMobile}
               />
-              <span className="text-base font-bold text-purple-400 uppercase truncate">
+              <span className={`${isMobile ? 'text-sm' : 'text-base'} font-bold text-purple-400 uppercase truncate`}>
                 {customGate.label}
               </span>
             </div>
@@ -251,11 +266,16 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
             {column.map((type) => (
               <div
                 key={type}
-                draggable
-                onDragStart={(e) => handleGateDragStart(e, type)}
-                className="flex items-center gap-2 group cursor-grab active:cursor-grabbing py-0.5 hover:bg-accent/20 transition-colors"
+                draggable={!onSelectGate}
+                onDragStart={onSelectGate ? undefined : (e) => handleGateDragStart(e, type)}
+                onClick={onSelectGate ? () => onSelectGate(type) : undefined}
+                className={`flex items-center gap-2 group py-0.5 transition-colors ${
+                  onSelectGate
+                    ? 'cursor-pointer active:bg-accent/30 min-h-[44px]'
+                    : 'cursor-grab active:cursor-grabbing hover:bg-accent/20'
+                }`}
               >
-                <Gate type={type} onHover={onHoverGate} isGateLibrary />
+                <Gate type={type} onHover={onHoverGate} isGateLibrary isMobile={isMobile} />
                 <span className="text-xs font-bold text-foreground uppercase truncate">
                   {GATE_DEFS[type]?.fullName || type}
                 </span>
@@ -284,8 +304,8 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
 
   return (
     <div
-      className="border-t-2 border-foreground bg-background px-4 pt-2 pb-4 z-10"
-      style={{ height: GATE_LIBRARY_HEIGHT, minHeight: GATE_LIBRARY_HEIGHT, flexShrink: 0 }}
+      className={`border-t-2 border-foreground bg-background px-4 pt-2 pb-4 z-10 ${isMobile ? 'overflow-y-auto' : ''}`}
+      style={isMobile ? { height: '100%', flexShrink: 0 } : { height: GATE_LIBRARY_HEIGHT, minHeight: GATE_LIBRARY_HEIGHT, flexShrink: 0 }}
     >
       {/* Header row: Title, Search, and Sub-library tabs */}
       <div className="flex items-center gap-4 mb-2">

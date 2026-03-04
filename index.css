@@ -55,4 +55,15 @@
   ::-webkit-scrollbar-thumb:hover {
     background: #ffffff;
   }
+
+  /* Mobile touch optimizations */
+  @media (max-width: 767px) {
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    [data-grid-cell] {
+      touch-action: manipulation;
+    }
+  }
 }
