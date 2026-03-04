@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Undo2, Redo2, X, Download, Upload, Info, LayoutTemplate } from 'lucide-react';
+import { Undo2, Redo2, X, Download, Upload, Info, LayoutTemplate, Menu, Plus, Minus } from 'lucide-react';
 import {
   GateType,
   CircuitGrid,
@@ -38,6 +38,11 @@ import { AlgorithmTemplate } from './data/algorithms';
 import { useCircuitHistory } from './hooks/useCircuitHistory';
 import { useSelection } from './hooks/useSelection';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useIsMobile } from './hooks/useIsMobile';
+import { useMobileGateSelection } from './hooks/useMobileGateSelection';
+import { MobileGateDrawer } from './components/MobileGateDrawer';
+import { MobileGateIndicator } from './components/MobileGateIndicator';
+import { MobileHeaderMenu } from './components/MobileHeaderMenu';
 
 interface PendingAngleInput {
   row: number;
@@ -117,6 +122,142 @@ const TimeParameterDisplay: React.FC<{
   );
 };
 
+// Mobile-aware grid cell wrapper — handles touch long-press for delete + tap for placement
+const MobileAwareCell: React.FC<{
+  cell: { gate: GateType | null; id: string; params?: GateParams };
+  rIdx: number;
+  cIdx: number;
+  isMobile: boolean;
+  isCellSelected: boolean;
+  isStepColumn: boolean;
+  isInTemplateArea: boolean;
+  isTemplateInvalid: boolean;
+  isTemplateAnchor: boolean;
+  isHovered: boolean;
+  isRowHighlighted: boolean;
+  isColHighlighted: boolean;
+  onDesktopClick: (e: React.MouseEvent) => void;
+  onMobileTap: (el?: HTMLElement) => void;
+  onMobileDelete: () => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDragLeave?: () => void;
+  onDrop?: (e: React.DragEvent) => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
+  children: React.ReactNode;
+}> = ({
+  cell,
+  isMobile,
+  isCellSelected,
+  isStepColumn,
+  isInTemplateArea,
+  isTemplateInvalid,
+  isTemplateAnchor,
+  isHovered,
+  isRowHighlighted,
+  isColHighlighted,
+  onDesktopClick,
+  onMobileTap,
+  onMobileDelete,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onContextMenu,
+  children,
+}) => {
+  const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFiredRef = React.useRef(false);
+  const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const cellRef = React.useRef<HTMLDivElement>(null);
+
+  // Clean up long-press timer on unmount or when isMobile changes
+  React.useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleTouchStart = React.useCallback((e: React.TouchEvent) => {
+    if (!isMobile) return;
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    longPressFiredRef.current = false;
+
+    longPressTimerRef.current = setTimeout(() => {
+      longPressFiredRef.current = true;
+      if (cell.gate) {
+        onMobileDelete();
+      }
+    }, 500);
+  }, [isMobile, cell.gate, onMobileDelete]);
+
+  const handleTouchMove = React.useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = touch.clientY - touchStartRef.current.y;
+    if (Math.sqrt(dx * dx + dy * dy) > 10) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    }
+  }, []);
+
+  const handleTouchEnd = React.useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    // If long-press fired, don't trigger tap
+    if (longPressFiredRef.current) {
+      longPressFiredRef.current = false;
+      return;
+    }
+    if (!isMobile) return;
+    onMobileTap(cellRef.current ?? undefined);
+  }, [isMobile, onMobileTap]);
+
+  return (
+    <div
+      ref={cellRef}
+      data-grid-cell
+      onClick={isMobile ? (e) => e.stopPropagation() : onDesktopClick}
+      onTouchStart={isMobile ? handleTouchStart : undefined}
+      onTouchMove={isMobile ? handleTouchMove : undefined}
+      onTouchEnd={isMobile ? handleTouchEnd : undefined}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onContextMenu={onContextMenu}
+      className={`flex items-center justify-center relative transition-all duration-200 border-r border-foreground/20 cursor-pointer ${
+        isCellSelected
+          ? 'ring-2 ring-cyan-400 ring-inset'
+          : ''
+      } ${
+        isStepColumn
+          ? 'bg-emerald-500/30'
+          : isInTemplateArea
+            ? (isTemplateInvalid
+                ? 'bg-red-500/30'
+                : isTemplateAnchor
+                  ? 'bg-yellow-400/60'
+                  : 'bg-yellow-400/30')
+            : isHovered
+              ? 'bg-accent/30'
+              : (isRowHighlighted || isColHighlighted)
+                ? 'bg-accent/15'
+                : ''
+      }`}
+      style={{ height: ROW_HEIGHT, width: CELL_WIDTH }}
+    >
+      {children}
+    </div>
+  );
+};
+
 // Helper to get the actual populated dimensions of a template (rows with gates, rightmost col with gate)
 const getTemplatePopulatedDimensions = (template: AlgorithmTemplate): { rows: number; cols: number } => {
   const grid = template.grid;
@@ -180,6 +321,19 @@ const App: React.FC = () => {
   // Header panel state
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Mobile support
+  const isMobile = useIsMobile();
+  const mobileGateSelection = useMobileGateSelection();
+
+  // Reset mobile state when transitioning away from mobile (e.g. tablet landscape)
+  useEffect(() => {
+    if (!isMobile) {
+      mobileGateSelection.cancel();
+      setIsMobileMenuOpen(false);
+    }
+  }, [isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Spanning gate resize state (works for REVERSE, INPUT_A/B/R, arithmetic gates)
   const [resizingGate, setResizingGate] = useState<{
@@ -959,6 +1113,155 @@ const App: React.FC = () => {
     setPendingAngle(null);
   };
 
+  // Mobile: tap-to-place/move handler for grid cells
+  const handleMobileCellTap = useCallback((row: number, col: number, cellElement?: HTMLElement) => {
+    const { state: mobileState } = mobileGateSelection;
+    const cell = grid[row]?.[col];
+
+    // Phase: gate is "held" (selected from library or grid)
+    if (mobileState.selectedGateType) {
+      if (mobileState.isMovingFromGrid && mobileState.sourceCellId) {
+        // Moving from grid — atomic clear-source + place-target
+        const parts = mobileState.sourceCellId.split('-');
+        const sourceRow = parseInt(parts[1], 10);
+        const sourceCol = parseInt(parts[2], 10);
+
+        if (sourceRow === row && sourceCol === col) {
+          mobileGateSelection.cancel();
+          return;
+        }
+
+        pushState(prev => {
+          const newGrid = prev.map(r => r.map(c => ({...c})));
+          const totalRows = newGrid.length;
+          const type = mobileState.selectedGateType!;
+          const existingParams = mobileState.selectedGateParams;
+
+          // Clear source
+          if (isResizableSpanningGate(type) && existingParams?.reverseSpan) {
+            const srcSpan = existingParams.reverseSpan;
+            for (let r = srcSpan.startRow; r <= srcSpan.endRow; r++) {
+              if (newGrid[r]?.[sourceCol]) {
+                newGrid[r][sourceCol].gate = null;
+                newGrid[r][sourceCol].params = undefined;
+              }
+            }
+          } else if (isAllFixed2x1Gate(type) && existingParams?.reverseSpan) {
+            const srcSpan = existingParams.reverseSpan;
+            for (let r = srcSpan.startRow; r <= srcSpan.endRow; r++) {
+              if (newGrid[r]?.[sourceCol]) {
+                newGrid[r][sourceCol].gate = null;
+                newGrid[r][sourceCol].params = undefined;
+              }
+            }
+          } else {
+            newGrid[sourceRow][sourceCol].gate = null;
+            newGrid[sourceRow][sourceCol].params = undefined;
+          }
+
+          // Place target (same as handleDrop logic)
+          const isFixed2x1 = isAllFixed2x1Gate(type);
+          const isResizableSpanning = isResizableSpanningGate(type);
+
+          if (isFixed2x1) {
+            if (row + 1 >= totalRows) return newGrid;
+            const fixedSpan = { startRow: row, endRow: row + 1 };
+            newGrid[row][col] = { ...newGrid[row][col], gate: type, params: { ...existingParams, reverseSpan: fixedSpan, isSpanContinuation: false } };
+            newGrid[row + 1][col] = { ...newGrid[row + 1][col], gate: type, params: { ...existingParams, reverseSpan: fixedSpan, isSpanContinuation: true } };
+          } else if (isResizableSpanning) {
+            const oldSpan = existingParams?.reverseSpan;
+            const spanSize = oldSpan ? (oldSpan.endRow - oldSpan.startRow) : 0;
+            const newEndRow = Math.min(row + spanSize, totalRows - 1);
+            const newSpan = { startRow: row, endRow: newEndRow };
+            newGrid[row][col] = { ...newGrid[row][col], gate: type, params: { ...existingParams, reverseSpan: newSpan, isSpanContinuation: false } };
+            for (let r = row + 1; r <= newEndRow; r++) {
+              newGrid[r][col] = { ...newGrid[r][col], gate: type, params: { ...existingParams, reverseSpan: newSpan, isSpanContinuation: true } };
+            }
+          } else {
+            newGrid[row][col] = { ...newGrid[row][col], gate: type, params: existingParams };
+          }
+          return newGrid;
+        });
+      } else {
+        // Placing from library
+        const type = mobileState.selectedGateType;
+        const params = mobileState.selectedGateParams;
+
+        if (isParameterizedGate(type) && !params?.angle) {
+          // Need angle input
+          const rect = cellElement?.getBoundingClientRect();
+          setPendingAngle({
+            row, col, type,
+            position: { x: rect?.left ?? 100, y: (rect?.bottom ?? 200) + 8 }
+          });
+          mobileGateSelection.cancel();
+          return;
+        }
+
+        handleDrop(row, col, type, params);
+      }
+      mobileGateSelection.cancel();
+      return;
+    }
+
+    // No gate held — check what's in the cell
+    if (cell?.gate && !cell.params?.isSpanContinuation) {
+      // Cell has a gate — if already selected, enter "move" mode
+      if (isSelected(row, col)) {
+        mobileGateSelection.selectFromGrid(cell.gate, cell.id, cell.params);
+      } else {
+        selectCell(row, col);
+      }
+    } else if (cell?.gate && cell.params?.isSpanContinuation && cell.params?.reverseSpan) {
+      // Tapped a continuation cell — select the anchor
+      selectCell(cell.params.reverseSpan.startRow, col);
+    } else {
+      selectCell(row, col);
+    }
+  }, [mobileGateSelection, grid, pushState, handleDrop, isSelected, selectCell, isParameterizedGate]);
+
+  // Mobile: long-press delete handler
+  const handleMobileDelete = useCallback((row: number, col: number) => {
+    const cell = grid[row]?.[col];
+    if (!cell?.gate) return;
+
+    if (isSpanningGate(cell.gate)) {
+      // Find anchor row
+      const span = cell.params?.reverseSpan;
+      if (span) {
+        deleteSpanningGate(col, span.startRow);
+      }
+    } else {
+      pushState(prev => {
+        const newGrid = prev.map(r => r.map(c => ({...c})));
+        newGrid[row][col].gate = null;
+        newGrid[row][col].params = undefined;
+        return newGrid;
+      });
+    }
+  }, [grid, pushState, deleteSpanningGate]);
+
+  // Mobile: spanning gate resize via +/- buttons
+  const handleMobileSpanResize = useCallback((col: number, anchorRow: number, direction: 'expand-top' | 'expand-bottom' | 'contract-top' | 'contract-bottom', gateType: GateType) => {
+    const cell = grid[anchorRow]?.[col];
+    if (!cell?.params?.reverseSpan) return;
+
+    const span = cell.params.reverseSpan;
+    let newStart = span.startRow;
+    let newEnd = span.endRow;
+
+    if (direction === 'expand-top' && newStart > 0) newStart--;
+    else if (direction === 'expand-bottom' && newEnd < MAX_ROWS - 1) newEnd++;
+    else if (direction === 'contract-top' && newEnd - newStart > 0) newStart++;
+    else if (direction === 'contract-bottom' && newEnd - newStart > 0) newEnd--;
+    else return;
+
+    // Save snapshot for undo, then update
+    saveSnapshot();
+    updateSpanningGateSpan(col, anchorRow, newStart, newEnd, gateType);
+    commitDrag();
+  }, [grid, saveSnapshot, updateSpanningGateSpan, commitDrag]);
+
   const handleAddCustomGate = () => {
     setShowCustomDialog(true);
   };
@@ -1173,18 +1476,18 @@ const App: React.FC = () => {
           width: CELL_WIDTH,
           height: spanHeight,
         }}
-        onMouseEnter={() => setHoveredReverseGate({ col, anchorRow: span.startRow })}
-        onMouseLeave={() => setHoveredReverseGate(null)}
-        onContextMenu={(e) => {
+        onMouseEnter={isMobile ? undefined : () => setHoveredReverseGate({ col, anchorRow: span.startRow })}
+        onMouseLeave={isMobile ? undefined : () => setHoveredReverseGate(null)}
+        onContextMenu={isMobile ? undefined : (e) => {
           e.preventDefault();
           deleteSpanningGate(col, span.startRow);
         }}
       >
         {/* Main gate body */}
         <div
-          className={`absolute inset-2 border-2 ${style.borderClass} ${errorBgClass} flex items-center justify-center cursor-grab active:cursor-grabbing`}
-          draggable
-          onDragStart={(e) => {
+          className={`absolute inset-2 border-2 ${style.borderClass} ${errorBgClass} flex items-center justify-center ${isMobile ? '' : 'cursor-grab active:cursor-grabbing'}`}
+          draggable={!isMobile}
+          onDragStart={isMobile ? undefined : (e) => {
             e.dataTransfer.setData('gateType', gateType);
             e.dataTransfer.setData('sourceCellId', `cell-${span.startRow}-${col}`);
             e.dataTransfer.setData('gateParams', JSON.stringify({ reverseSpan: span }));
@@ -1194,8 +1497,8 @@ const App: React.FC = () => {
           <span className={`${style.textClass} font-bold text-xs`}>{label}</span>
         </div>
 
-        {/* Resize handles - only show on hover for resizable gates (REVERSE only) */}
-        {isHovered && isResizable && (
+        {/* Desktop: Resize handles - only show on hover for resizable gates */}
+        {!isMobile && isHovered && isResizable && (
           <>
             {/* Top resize handle */}
             <div
@@ -1209,6 +1512,48 @@ const App: React.FC = () => {
               style={{ bottom: 4 }}
               onMouseDown={handleResizeMouseDown('bottom')}
             />
+          </>
+        )}
+
+        {/* Mobile: +/- resize buttons when tapped (selected) */}
+        {isMobile && isResizable && selectedCell && selectedCell.row === span.startRow && selectedCell.col === col && (
+          <>
+            {/* Top expand */}
+            {span.startRow > 0 && (
+              <button
+                className={`absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full ${style.hoverBgClass} text-background flex items-center justify-center z-50`}
+                onClick={(e) => { e.stopPropagation(); handleMobileSpanResize(col, span.startRow, 'expand-top', gateType); }}
+              >
+                <Plus size={14} />
+              </button>
+            )}
+            {/* Top contract */}
+            {span.endRow - span.startRow > 0 && (
+              <button
+                className={`absolute top-1 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full border ${style.borderClass} text-foreground/70 flex items-center justify-center z-50`}
+                onClick={(e) => { e.stopPropagation(); handleMobileSpanResize(col, span.startRow, 'contract-top', gateType); }}
+              >
+                <Minus size={12} />
+              </button>
+            )}
+            {/* Bottom expand */}
+            {span.endRow < MAX_ROWS - 1 && (
+              <button
+                className={`absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full ${style.hoverBgClass} text-background flex items-center justify-center z-50`}
+                onClick={(e) => { e.stopPropagation(); handleMobileSpanResize(col, span.startRow, 'expand-bottom', gateType); }}
+              >
+                <Plus size={14} />
+              </button>
+            )}
+            {/* Bottom contract */}
+            {span.endRow - span.startRow > 0 && (
+              <button
+                className={`absolute bottom-1 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full border ${style.borderClass} text-foreground/70 flex items-center justify-center z-50`}
+                onClick={(e) => { e.stopPropagation(); handleMobileSpanResize(col, span.startRow, 'contract-bottom', gateType); }}
+              >
+                <Minus size={12} />
+              </button>
+            )}
           </>
         )}
       </div>
@@ -1349,127 +1694,153 @@ const App: React.FC = () => {
     <div className="flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden font-mono font-bold">
 
       {/* Header Bar */}
-      <header className="h-16 border-b-2 border-foreground bg-background flex items-center px-6 justify-between shrink-0 z-20">
-        <div className="flex items-center gap-6">
-          {/* Logo */}
-          <div className="flex items-center gap-2">
-            <h1 className="font-bold text-4xl tracking-tight">Qbit Weaver</h1>
-          </div>
+      <header className={`${isMobile ? 'h-12' : 'h-16'} border-b-2 border-foreground bg-background flex items-center ${isMobile ? 'px-3' : 'px-6'} justify-between shrink-0 z-20`}>
+        {isMobile ? (
+          <>
+            {/* Mobile header: logo + hamburger */}
+            <h1 className="font-bold text-xl tracking-tight">Qbit Weaver</h1>
+            <div className="relative">
+              <button
+                onClick={() => setIsMobileMenuOpen(prev => !prev)}
+                className="p-2 active:bg-accent/20"
+                aria-label="Menu"
+              >
+                <Menu size={22} />
+              </button>
+              <MobileHeaderMenu
+                isOpen={isMobileMenuOpen}
+                onClose={() => setIsMobileMenuOpen(false)}
+                onSave={handleSaveCircuit}
+                onUpload={() => fileInputRef.current?.click()}
+                onClear={handleClear}
+                onInfo={() => setIsInfoOpen(true)}
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-6">
+              {/* Logo */}
+              <div className="flex items-center gap-2">
+                <h1 className="font-bold text-4xl tracking-tight">Qbit Weaver</h1>
+              </div>
 
-          {/* Step Mode Toggle */}
-          <button
-            onClick={handleStepModeToggle}
-            disabled={hasTimeGates || isFrozen || !hasRun || stateHistory.length <= 1}
-            className={`flex items-center gap-2 px-4 py-2 border-2 transition-colors text-base font-bold uppercase ${
-              stepMode
-                ? 'bg-emerald-600 border-emerald-600 text-white'
-                : hasTimeGates || isFrozen
-                  ? 'border-foreground/30 text-foreground/30 cursor-not-allowed'
-                  : hasRun && stateHistory.length > 1
-                    ? 'border-foreground hover:bg-foreground hover:text-background'
-                    : 'border-foreground/30 text-foreground/30 cursor-not-allowed'
-            }`}
-            title={hasTimeGates ? 'Step mode unavailable with time-parameterized gates' : isFrozen ? 'Unfreeze to enable step mode' : 'Toggle step-through simulation mode'}
-          >
-            <span>Step Mode</span>
-          </button>
+              {/* Step Mode Toggle */}
+              <button
+                onClick={handleStepModeToggle}
+                disabled={hasTimeGates || isFrozen || !hasRun || stateHistory.length <= 1}
+                className={`flex items-center gap-2 px-4 py-2 border-2 transition-colors text-base font-bold uppercase ${
+                  stepMode
+                    ? 'bg-emerald-600 border-emerald-600 text-white'
+                    : hasTimeGates || isFrozen
+                      ? 'border-foreground/30 text-foreground/30 cursor-not-allowed'
+                      : hasRun && stateHistory.length > 1
+                        ? 'border-foreground hover:bg-foreground hover:text-background'
+                        : 'border-foreground/30 text-foreground/30 cursor-not-allowed'
+                }`}
+                title={hasTimeGates ? 'Step mode unavailable with time-parameterized gates' : isFrozen ? 'Unfreeze to enable step mode' : 'Toggle step-through simulation mode'}
+              >
+                <span>Step Mode</span>
+              </button>
 
-          {/* Simulation Timeline - visible when step mode is active */}
-          {stepMode && hasRun && stateHistory.length > 1 && (
-            <SimulationTimeline
-              totalSteps={stateHistory.length - 1}
-              currentStep={stepIndex}
-              onStepChange={handleStepChange}
-              isPlaying={isPlaying}
-              onPlayPause={handlePlayPause}
-              onStepForward={handleStepForward}
-              onStepBack={handleStepBack}
-            />
-          )}
+              {/* Simulation Timeline - visible when step mode is active */}
+              {stepMode && hasRun && stateHistory.length > 1 && (
+                <SimulationTimeline
+                  totalSteps={stateHistory.length - 1}
+                  currentStep={stepIndex}
+                  onStepChange={handleStepChange}
+                  isPlaying={isPlaying}
+                  onPlayPause={handlePlayPause}
+                  onStepForward={handleStepForward}
+                  onStepBack={handleStepBack}
+                />
+              )}
 
-          {/* Freeze Button - freezes t animation */}
-          <button
-            onClick={() => setIsFrozen(prev => !prev)}
-            disabled={stepMode || !hasTimeGates}
-            className={`flex items-center gap-2 px-4 py-2 border-2 transition-colors text-base font-bold uppercase ${
-              isFrozen
-                ? 'bg-blue-600 border-blue-600 text-white'
-                : stepMode || !hasTimeGates
-                  ? 'border-foreground/30 text-foreground/30 cursor-not-allowed'
-                  : 'border-foreground hover:bg-foreground hover:text-background'
-            }`}
-            title={stepMode ? 'Freeze unavailable in step mode' : !hasTimeGates ? 'No time-parameterized gates in circuit' : 'Freeze/unfreeze time parameter animation'}
-          >
-            <span>Freeze</span>
-          </button>
+              {/* Freeze Button - freezes t animation */}
+              <button
+                onClick={() => setIsFrozen(prev => !prev)}
+                disabled={stepMode || !hasTimeGates}
+                className={`flex items-center gap-2 px-4 py-2 border-2 transition-colors text-base font-bold uppercase ${
+                  isFrozen
+                    ? 'bg-blue-600 border-blue-600 text-white'
+                    : stepMode || !hasTimeGates
+                      ? 'border-foreground/30 text-foreground/30 cursor-not-allowed'
+                      : 'border-foreground hover:bg-foreground hover:text-background'
+                }`}
+                title={stepMode ? 'Freeze unavailable in step mode' : !hasTimeGates ? 'No time-parameterized gates in circuit' : 'Freeze/unfreeze time parameter animation'}
+              >
+                <span>Freeze</span>
+              </button>
 
-          {/* Time Parameter Display - shows when time gates exist, clickable when frozen */}
-          {hasTimeGates && (
-            <TimeParameterDisplay
-              timeParameter={timeParameter}
-              isFrozen={isFrozen}
-              onTimeChange={setTimeParameter}
-            />
-          )}
-        </div>
+              {/* Time Parameter Display - shows when time gates exist, clickable when frozen */}
+              {hasTimeGates && (
+                <TimeParameterDisplay
+                  timeParameter={timeParameter}
+                  isFrozen={isFrozen}
+                  onTimeChange={setTimeParameter}
+                />
+              )}
+            </div>
 
-        <div className="flex items-center gap-4">
-          {/* Info Button */}
-          <button
-            onClick={() => setIsInfoOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 border-2 border-foreground hover:bg-foreground hover:text-background transition-colors text-base font-bold uppercase"
-            title="About Qbit Weaver"
-          >
-            <Info size={18} />
-            <span>Info</span>
-          </button>
+            <div className="flex items-center gap-4">
+              {/* Info Button */}
+              <button
+                onClick={() => setIsInfoOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 border-2 border-foreground hover:bg-foreground hover:text-background transition-colors text-base font-bold uppercase"
+                title="About Qbit Weaver"
+              >
+                <Info size={18} />
+                <span>Info</span>
+              </button>
 
-          {/* Templates Button + Dropdown */}
-          <div className="relative">
-            <button
-              id="templates-header-btn"
-              onClick={() => setIsTemplatesOpen(prev => !prev)}
-              className={`flex items-center gap-2 px-4 py-2 border-2 border-foreground transition-colors text-base font-bold uppercase ${
-                isTemplatesOpen
-                  ? 'bg-foreground text-background'
-                  : 'hover:bg-foreground hover:text-background'
-              }`}
-              title="Toggle templates panel"
-            >
-              <LayoutTemplate size={18} />
-              <span>Templates</span>
-            </button>
-            <TemplatesDropdown
-              isOpen={isTemplatesOpen}
-              onClose={() => setIsTemplatesOpen(false)}
-              onDragStart={setDraggingTemplate}
-              onDragEnd={() => {
-                setDraggingTemplate(null);
-                setTemplateDragHover(null);
-              }}
-            />
-          </div>
+              {/* Templates Button + Dropdown */}
+              <div className="relative">
+                <button
+                  id="templates-header-btn"
+                  onClick={() => setIsTemplatesOpen(prev => !prev)}
+                  className={`flex items-center gap-2 px-4 py-2 border-2 border-foreground transition-colors text-base font-bold uppercase ${
+                    isTemplatesOpen
+                      ? 'bg-foreground text-background'
+                      : 'hover:bg-foreground hover:text-background'
+                  }`}
+                  title="Toggle templates panel"
+                >
+                  <LayoutTemplate size={18} />
+                  <span>Templates</span>
+                </button>
+                <TemplatesDropdown
+                  isOpen={isTemplatesOpen}
+                  onClose={() => setIsTemplatesOpen(false)}
+                  onDragStart={setDraggingTemplate}
+                  onDragEnd={() => {
+                    setDraggingTemplate(null);
+                    setTemplateDragHover(null);
+                  }}
+                />
+              </div>
 
-          {/* Save Button */}
-          <button
-            onClick={handleSaveCircuit}
-            className="flex items-center gap-2 px-4 py-2 border-2 border-foreground hover:bg-foreground hover:text-background transition-colors text-base font-bold uppercase"
-            title="Save circuit to file"
-          >
-            <Download size={18} />
-            <span>Save</span>
-          </button>
+              {/* Save Button */}
+              <button
+                onClick={handleSaveCircuit}
+                className="flex items-center gap-2 px-4 py-2 border-2 border-foreground hover:bg-foreground hover:text-background transition-colors text-base font-bold uppercase"
+                title="Save circuit to file"
+              >
+                <Download size={18} />
+                <span>Save</span>
+              </button>
 
-          {/* Upload Button */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 border-2 border-foreground hover:bg-foreground hover:text-background transition-colors text-base font-bold uppercase"
-            title="Load circuit from file"
-          >
-            <Upload size={18} />
-            <span>Upload</span>
-          </button>
-        </div>
+              {/* Upload Button */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-4 py-2 border-2 border-foreground hover:bg-foreground hover:text-background transition-colors text-base font-bold uppercase"
+                title="Load circuit from file"
+              >
+                <Upload size={18} />
+                <span>Upload</span>
+              </button>
+            </div>
+          </>
+        )}
       </header>
 
       {/* Main Layout - Circuit Area + Gate Library */}
@@ -1575,49 +1946,41 @@ const App: React.FC = () => {
                             const isStepColumn = stepMode && cIdx === currentStepColumn;
 
                             return (
-                              <div
+                              <MobileAwareCell
                                 key={cell.id}
-                                data-grid-cell
-                                onClick={(e) => {
+                                cell={cell}
+                                rIdx={rIdx}
+                                cIdx={cIdx}
+                                isMobile={isMobile}
+                                isCellSelected={isCellSelected}
+                                isStepColumn={isStepColumn}
+                                isInTemplateArea={isInTemplateArea}
+                                isTemplateInvalid={isTemplateInvalid}
+                                isTemplateAnchor={isTemplateAnchor}
+                                isHovered={isHovered}
+                                isRowHighlighted={isRowHighlighted}
+                                isColHighlighted={isColHighlighted}
+                                onDesktopClick={(e) => {
                                   e.stopPropagation();
                                   selectCell(rIdx, cIdx);
                                 }}
-                                onDragOver={(e) => handleDragOver(e, rIdx, cIdx)}
-                                onDragLeave={handleDragLeave}
-                                onDrop={(e) => handleDropEvent(e, rIdx, cIdx)}
-                                onContextMenu={(e) => clearCell(rIdx, cIdx, e)}
-                                className={`flex items-center justify-center relative transition-all duration-200 border-r border-foreground/20 cursor-pointer ${
-                                  isCellSelected
-                                    ? 'ring-2 ring-cyan-400 ring-inset'
-                                    : ''
-                                } ${
-                                  isStepColumn
-                                    ? 'bg-emerald-500/30'
-                                    : isInTemplateArea
-                                      ? (isTemplateInvalid
-                                          ? 'bg-red-500/30'
-                                          : isTemplateAnchor
-                                            ? 'bg-yellow-400/60'
-                                            : 'bg-yellow-400/30')
-                                      : isHovered
-                                        ? 'bg-accent/30'
-                                        : (isRowHighlighted || isColHighlighted)
-                                          ? 'bg-accent/15'
-                                          : ''
-                                }`}
-                                style={{ height: ROW_HEIGHT, width: CELL_WIDTH }}
+                                onMobileTap={(el) => handleMobileCellTap(rIdx, cIdx, el)}
+                                onMobileDelete={() => handleMobileDelete(rIdx, cIdx)}
+                                onDragOver={isMobile ? undefined : (e) => handleDragOver(e, rIdx, cIdx)}
+                                onDragLeave={isMobile ? undefined : handleDragLeave}
+                                onDrop={isMobile ? undefined : (e) => handleDropEvent(e, rIdx, cIdx)}
+                                onContextMenu={isMobile ? undefined : (e) => clearCell(rIdx, cIdx, e)}
                               >
                                 {/* Regular gates (non-spanning, non-visualization) */}
                                 {cell.gate && !isSpanningGate(cell.gate) && !isVisualizationGate(cell.gate) && (
-                                  <Gate type={cell.gate} onHover={handleGateHover} params={cell.params} cellId={cell.id} hasError={cellHasError(rIdx, cIdx)} />
+                                  <Gate type={cell.gate} onHover={handleGateHover} params={cell.params} cellId={cell.id} hasError={cellHasError(rIdx, cIdx)} isMobile={isMobile} />
                                 )}
                                 {/* Visualization gates - show inline visualization when circuit has run */}
                                 {cell.gate && isVisualizationGate(cell.gate) && hasRun && (() => {
                                   const stateAtCol = getStateAtColumn(cIdx);
                                   const filteredIdx = populatedRows.indexOf(rIdx);
                                   if (!stateAtCol || filteredIdx === -1) {
-                                    // Fallback to icon if state not available
-                                    return <Gate type={cell.gate} onHover={handleGateHover} params={cell.params} cellId={cell.id} hasError={cellHasError(rIdx, cIdx)} />;
+                                    return <Gate type={cell.gate} onHover={handleGateHover} params={cell.params} cellId={cell.id} hasError={cellHasError(rIdx, cIdx)} isMobile={isMobile} />;
                                   }
                                   if (cell.gate === GateType.BLOCH_VIS) {
                                     return (
@@ -1646,13 +2009,13 @@ const App: React.FC = () => {
                                 })()}
                                 {/* Visualization gates - show icon when circuit hasn't run */}
                                 {cell.gate && isVisualizationGate(cell.gate) && !hasRun && (
-                                  <Gate type={cell.gate} onHover={handleGateHover} params={cell.params} cellId={cell.id} hasError={cellHasError(rIdx, cIdx)} />
+                                  <Gate type={cell.gate} onHover={handleGateHover} params={cell.params} cellId={cell.id} hasError={cellHasError(rIdx, cIdx)} isMobile={isMobile} />
                                 )}
                                 {/* Render spanning gate anchor (REVERSE, arithmetic spanning, input markers) */}
                                 {cell.gate && isSpanningGate(cell.gate) && !cell.params?.isSpanContinuation && cell.params?.reverseSpan && (
                                   renderSpanningGate(cIdx, cell.gate, cell.params.reverseSpan, cellHasError(rIdx, cIdx))
                                 )}
-                              </div>
+                              </MobileAwareCell>
                             );
                           })}
                         </div>
@@ -1844,12 +2207,12 @@ const App: React.FC = () => {
             </div>
 
             {/* Floating Undo/Redo/Clear Buttons - outside scrollable area */}
-            <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2 bg-background/90 border border-foreground/30 rounded-lg p-2 shadow-lg">
+            <div className={`absolute ${isMobile ? 'bottom-16' : 'bottom-4'} right-4 z-20 flex items-center gap-2 bg-background/90 border border-foreground/30 rounded-lg p-2 shadow-lg`}>
               {/* Undo Button */}
               <button
                 onClick={undo}
                 disabled={!canUndo}
-                className={`flex items-center gap-2 px-3 py-1.5 border-2 transition-colors text-sm font-bold uppercase ${
+                className={`flex items-center gap-2 ${isMobile ? 'px-2 py-1.5' : 'px-3 py-1.5'} border-2 transition-colors text-sm font-bold uppercase ${
                   canUndo
                     ? 'border-foreground hover:bg-foreground hover:text-background'
                     : 'border-foreground/30 text-foreground/30 cursor-not-allowed'
@@ -1857,14 +2220,14 @@ const App: React.FC = () => {
                 title="Undo (Ctrl+Z)"
               >
                 <Undo2 size={16} />
-                <span>Undo</span>
+                {!isMobile && <span>Undo</span>}
               </button>
 
               {/* Redo Button */}
               <button
                 onClick={redo}
                 disabled={!canRedo}
-                className={`flex items-center gap-2 px-3 py-1.5 border-2 transition-colors text-sm font-bold uppercase ${
+                className={`flex items-center gap-2 ${isMobile ? 'px-2 py-1.5' : 'px-3 py-1.5'} border-2 transition-colors text-sm font-bold uppercase ${
                   canRedo
                     ? 'border-foreground hover:bg-foreground hover:text-background'
                     : 'border-foreground/30 text-foreground/30 cursor-not-allowed'
@@ -1872,16 +2235,18 @@ const App: React.FC = () => {
                 title="Redo (Ctrl+Shift+Z)"
               >
                 <Redo2 size={16} />
-                <span>Redo</span>
+                {!isMobile && <span>Redo</span>}
               </button>
 
-              {/* Clear Button */}
-              <button
-                onClick={handleClear}
-                className="flex items-center gap-2 px-3 py-1.5 border-2 border-foreground hover:bg-red-600 hover:border-red-600 hover:text-white transition-colors text-sm font-bold uppercase"
-              >
-                <span>Clear</span>
-              </button>
+              {/* Clear Button - hidden on mobile (available in hamburger menu) */}
+              {!isMobile && (
+                <button
+                  onClick={handleClear}
+                  className="flex items-center gap-2 px-3 py-1.5 border-2 border-foreground hover:bg-red-600 hover:border-red-600 hover:text-white transition-colors text-sm font-bold uppercase"
+                >
+                  <span>Clear</span>
+                </button>
+              )}
 
               {/* Hidden file input for header Upload button */}
               <input
@@ -1895,13 +2260,37 @@ const App: React.FC = () => {
 
           </section>
 
-        {/* Gate Library - Bottom */}
-        <GateLibrary
+        {/* Gate Library - Bottom (desktop only) */}
+        {!isMobile && (
+          <GateLibrary
+            onHoverGate={handleGateHover}
+            customGates={customGates}
+            onAddCustomGate={handleAddCustomGate}
+          />
+        )}
+      </div>
+
+      {/* Mobile Gate Drawer */}
+      {isMobile && (
+        <MobileGateDrawer
           onHoverGate={handleGateHover}
+          onSelectGate={mobileGateSelection.selectFromLibrary}
           customGates={customGates}
           onAddCustomGate={handleAddCustomGate}
+          selectedGateType={mobileGateSelection.state.selectedGateType}
         />
-      </div>
+      )}
+
+      {/* Mobile Gate Indicator */}
+      {isMobile && mobileGateSelection.state.selectedGateType && (
+        <MobileGateIndicator
+          gateType={mobileGateSelection.state.selectedGateType}
+          gateParams={mobileGateSelection.state.selectedGateParams}
+          isMoving={mobileGateSelection.state.isMovingFromGrid}
+          onCancel={mobileGateSelection.cancel}
+          onHoverGate={handleGateHover}
+        />
+      )}
 
       {/* Angle Input Popup */}
       {pendingAngle && (

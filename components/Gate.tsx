@@ -24,9 +24,11 @@ interface GateProps {
   isGateLibrary?: boolean;
   /** If true, this gate has a validation error and should be highlighted in red */
   hasError?: boolean;
+  /** If true, disable drag interactions for mobile */
+  isMobile?: boolean;
 }
 
-export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGateLibrary = false, hasError = false }) => {
+export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGateLibrary = false, hasError = false, isMobile = false }) => {
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('gateType', type);
     // If from gate library, copy; if from circuit board, move
@@ -480,10 +482,10 @@ export const Gate: React.FC<GateProps> = ({ type, onHover, params, cellId, isGat
 
   return (
     <div
-      draggable={!isGateLibrary}
-      onDragStart={!isGateLibrary ? handleDragStart : undefined}
-      onMouseEnter={() => onHover(type, params)}
-      onMouseLeave={() => onHover(null)}
+      draggable={!isGateLibrary && !isMobile}
+      onDragStart={!isGateLibrary && !isMobile ? handleDragStart : undefined}
+      onMouseEnter={!isMobile ? () => onHover(type, params) : undefined}
+      onMouseLeave={!isMobile ? () => onHover(null) : undefined}
       className={`${baseClasses} ${specificStyles} ${errorBgClass} group`}
     >
       {content}
