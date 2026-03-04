@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 
 interface InfoModalProps {
   onClose: () => void;
+  isMobile?: boolean;
 }
 
 const INFO_SECTIONS = [
@@ -23,7 +24,7 @@ const INFO_SECTIONS = [
   },
 ];
 
-export const InfoModal: React.FC<InfoModalProps> = ({ onClose }) => {
+export const InfoModal: React.FC<InfoModalProps> = ({ onClose, isMobile }) => {
   // Close on Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -41,8 +42,10 @@ export const InfoModal: React.FC<InfoModalProps> = ({ onClose }) => {
       }}
     >
       <div
-        className="relative bg-neutral-900 border border-neutral-700 rounded-lg overflow-y-auto p-8"
-        style={{ width: '75vw', height: '75vh' }}
+        className={`relative bg-neutral-900 border border-neutral-700 rounded-lg overflow-y-auto p-8 ${
+          isMobile ? 'w-[90vw] max-h-[80vh]' : ''
+        }`}
+        style={isMobile ? undefined : { width: '75vw', height: '75vh' }}
       >
         {/* Close button */}
         <button
@@ -54,13 +57,13 @@ export const InfoModal: React.FC<InfoModalProps> = ({ onClose }) => {
         </button>
 
         {/* Tagline */}
-        <h1 className="text-3xl font-bold text-foreground mb-2">Qbit Weaver</h1>
-        <p className="text-foreground/60 text-lg mb-10">
+        <h1 className={`font-bold text-foreground mb-2 ${isMobile ? 'text-xl' : 'text-3xl'}`}>Qbit Weaver</h1>
+        <p className={`text-foreground/60 mb-10 ${isMobile ? 'text-sm' : 'text-lg'}`}>
           A quantum computer simulator that runs in your browser!
         </p>
 
-        {/* 3-column feature sections */}
-        <div className="grid grid-cols-3 gap-6">
+        {/* Feature sections: 3 columns on desktop, stacked on mobile */}
+        <div className={isMobile ? 'flex flex-col gap-6' : 'grid grid-cols-3 gap-6'}>
           {INFO_SECTIONS.map((section) => (
             <div key={section.title}>
               <h2 className="text-lg font-bold text-foreground mb-1 uppercase">

@@ -327,7 +327,7 @@ const App: React.FC = () => {
 
   // Header panel state
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
-  const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isInfoOpen, setIsInfoOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Mobile support
@@ -356,6 +356,7 @@ const App: React.FC = () => {
   const circuitScrollRef = useRef<HTMLDivElement>(null);
 
   // Create initial grid
+  const MOBILE_INITIAL_COLS = 4;
   const initialGrid = React.useMemo(() => {
     return Array(INITIAL_ROWS).fill(null).map((_, r) =>
       Array(INITIAL_COLS).fill(null).map((_, c) => ({
@@ -377,6 +378,20 @@ const App: React.FC = () => {
     canUndo,
     canRedo,
   } = useCircuitHistory(initialGrid);
+
+  // Trim grid to fewer columns on mobile (runs once when mobile is first detected)
+  const mobileGridInitRef = useRef(false);
+  useEffect(() => {
+    if (isMobile && !mobileGridInitRef.current) {
+      mobileGridInitRef.current = true;
+      setGrid((prev: CircuitGrid) => {
+        // Only trim if grid is empty (no gates placed yet)
+        const hasGates = prev.some(row => row.some(cell => cell.gate !== null));
+        if (hasGates || prev[0]?.length <= MOBILE_INITIAL_COLS) return prev;
+        return prev.map(row => row.slice(0, MOBILE_INITIAL_COLS));
+      });
+    }
+  }, [isMobile, setGrid]);
 
   // Selection state for keyboard navigation
   const {
@@ -2351,7 +2366,7 @@ const App: React.FC = () => {
 
       {/* Info Modal */}
       {isInfoOpen && (
-        <InfoModal onClose={() => setIsInfoOpen(false)} />
+        <InfoModal onClose={() => setIsInfoOpen(false)} isMobile={isMobile} />
       )}
 
     </div>

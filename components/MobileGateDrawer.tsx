@@ -28,7 +28,7 @@ export const MobileGateDrawer: React.FC<MobileGateDrawerProps> = ({
   return (
     <div
       className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t-2 border-foreground transition-all duration-300"
-      style={{ height: isExpanded ? 'min(280px, 45vh)' : 48 }}
+      style={{ height: isExpanded ? 'min(320px, 50vh)' : 48 }}
     >
       {/* Collapsed bar / toggle */}
       <button
@@ -48,7 +48,7 @@ export const MobileGateDrawer: React.FC<MobileGateDrawerProps> = ({
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="overflow-hidden" style={{ height: 'calc(min(280px, 45vh) - 48px)' }}>
+        <div className="overflow-hidden" style={{ height: 'calc(min(320px, 50vh) - 48px)' }}>
           <GateLibrary
             onHoverGate={onHoverGate}
             customGates={customGates}
