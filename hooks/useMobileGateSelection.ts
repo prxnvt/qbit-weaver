@@ -20,8 +20,11 @@ export function useMobileGateSelection() {
 
   const selectFromLibrary = useCallback((type: GateType, params?: GateParams) => {
     setState(prev => {
-      // Toggle off if same gate tapped again
-      if (prev.selectedGateType === type && !prev.isMovingFromGrid) {
+      // Toggle off if same gate tapped again (compare customLabel for CUSTOM gates)
+      const isSameGate = prev.selectedGateType === type &&
+        !prev.isMovingFromGrid &&
+        (type !== 'CUSTOM' || prev.selectedGateParams?.customLabel === params?.customLabel);
+      if (isSameGate) {
         return INITIAL_STATE;
       }
       return {

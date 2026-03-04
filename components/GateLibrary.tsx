@@ -308,37 +308,41 @@ export const GateLibrary: React.FC<GateLibraryProps> = ({ onHoverGate, customGat
       style={isMobile ? { height: '100%', flexShrink: 0 } : { height: GATE_LIBRARY_HEIGHT, minHeight: GATE_LIBRARY_HEIGHT, flexShrink: 0 }}
     >
       {/* Header row: Title, Search, and Sub-library tabs */}
-      <div className="flex items-center gap-4 mb-2">
-        <span className="text-lg font-bold text-foreground uppercase shrink-0 tracking-tight">
-          Gate Library
-        </span>
-        <div className="relative max-w-xs">
-          <Input
-            ref={searchInputRef}
-            type="text"
-            placeholder="Search gates..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-7 bg-background border-foreground text-foreground placeholder:text-foreground/50 text-xs pr-7"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/70 hover:text-foreground text-xs font-bold"
-              aria-label="Clear search"
-            >
-              X
-            </button>
-          )}
+      <div className={`${isMobile ? 'flex flex-col gap-1' : 'flex items-center gap-4'} mb-2`}>
+        {!isMobile && (
+          <span className="text-lg font-bold text-foreground uppercase shrink-0 tracking-tight">
+            Gate Library
+          </span>
+        )}
+        <div className={`flex items-center gap-2 ${isMobile ? 'w-full' : ''}`}>
+          <div className={`relative ${isMobile ? 'flex-1' : 'max-w-xs'}`}>
+            <Input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search gates..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-7 bg-background border-foreground text-foreground placeholder:text-foreground/50 text-xs pr-7"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/70 hover:text-foreground text-xs font-bold"
+                aria-label="Clear search"
+              >
+                X
+              </button>
+            )}
+          </div>
         </div>
         {/* Sub-library toggle buttons (hidden when searching) */}
         {!isSearching && (
-          <div className="flex gap-1">
+          <div className={`flex gap-1 ${isMobile ? 'overflow-x-auto' : ''}`}>
             {SUB_LIBRARIES.map((lib) => (
               <button
                 key={lib}
                 onClick={() => setActiveSubLibrary(lib)}
-                className={`px-2 py-1 text-base font-bold uppercase transition-colors ${
+                className={`px-2 py-1 ${isMobile ? 'text-xs' : 'text-base'} font-bold uppercase transition-colors shrink-0 ${
                   activeSubLibrary === lib
                     ? 'bg-foreground text-background'
                     : 'text-foreground hover:bg-accent/30'

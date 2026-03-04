@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Download, Upload, X as XIcon, Info } from 'lucide-react';
 
 interface MobileHeaderMenuProps {
@@ -19,6 +19,12 @@ export const MobileHeaderMenu: React.FC<MobileHeaderMenuProps> = ({
   onInfo,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+  const [confirmingClear, setConfirmingClear] = useState(false);
+
+  // Reset confirm state when menu closes
+  useEffect(() => {
+    if (!isOpen) setConfirmingClear(false);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -52,9 +58,18 @@ export const MobileHeaderMenu: React.FC<MobileHeaderMenuProps> = ({
         <Upload size={18} />
         <span>Upload</span>
       </button>
-      <button onClick={() => { onClear(); onClose(); }} className={`${buttonClass} text-red-400`}>
+      <button
+        onClick={() => {
+          if (confirmingClear) {
+            onClear(); onClose();
+          } else {
+            setConfirmingClear(true);
+          }
+        }}
+        className={`${buttonClass} ${confirmingClear ? 'text-red-300 bg-red-600/30' : 'text-red-400'}`}
+      >
         <XIcon size={18} />
-        <span>Clear</span>
+        <span>{confirmingClear ? 'Tap to confirm' : 'Clear'}</span>
       </button>
       <button onClick={() => { onInfo(); onClose(); }} className={buttonClass}>
         <Info size={18} />
