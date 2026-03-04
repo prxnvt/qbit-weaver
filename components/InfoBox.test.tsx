@@ -53,13 +53,11 @@ describe('InfoBox', () => {
     const info: HoverInfo = {
       type: 'template',
       name: 'Bell State',
-      description: 'Creates an entangled Bell state',
       qubits: 2,
       category: 'Entanglement',
     };
     render(<InfoBox info={info} />);
     expect(screen.getByText('Bell State')).toBeInTheDocument();
-    expect(screen.getByText('Creates an entangled Bell state')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText('Entanglement')).toBeInTheDocument();
   });
