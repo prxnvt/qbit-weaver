@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import { GateType, CircuitGrid, isSpanningGate } from '../types';
+import { CircuitGrid, isSpanningGate } from '../types';
 
 export interface UseKeyboardShortcutsOptions {
   /** Currently selected cell */
@@ -18,20 +18,7 @@ export interface UseKeyboardShortcutsOptions {
   pushState: (update: CircuitGrid | ((prev: CircuitGrid) => CircuitGrid)) => void;
   /** Delete spanning gate function */
   deleteSpanningGate: (col: number, anchorRow: number) => void;
-  /** Optional callback to track recently used gates */
-  addRecentGate?: (gate: GateType) => void;
 }
-
-/** Gate hotkeys mapping */
-const GATE_HOTKEYS: Record<string, GateType> = {
-  h: GateType.H,
-  x: GateType.X,
-  y: GateType.Y,
-  z: GateType.Z,
-  s: GateType.S,
-  t: GateType.T,
-  m: GateType.MEASURE,
-};
 
 /**
  * Check if an event target is an interactive element that should
@@ -71,7 +58,6 @@ function isInteractiveElement(target: EventTarget | null): boolean {
  * Handles:
  * - Arrow key navigation (moves selection within grid bounds)
  * - Delete/Backspace (clears gate from selected cell)
- * - Gate hotkeys (H, X, Y, Z, S, T, M)
  * - Escape (clears selection)
  */
 export function useKeyboardShortcuts({
@@ -83,7 +69,6 @@ export function useKeyboardShortcuts({
   grid,
   pushState,
   deleteSpanningGate,
-  addRecentGate,
 }: UseKeyboardShortcutsOptions): void {
   /**
    * Handle arrow key navigation.
@@ -149,33 +134,6 @@ export function useKeyboardShortcuts({
     });
   }, [selectedCell, grid, pushState, deleteSpanningGate]);
 
-  /**
-   * Handle gate hotkeys to place gates at selected cell.
-   * Uses pushState to ensure the operation is undoable.
-   */
-  const handleGateHotkey = useCallback(
-    (gateType: GateType) => {
-      if (!selectedCell) return;
-
-      const { row, col } = selectedCell;
-
-      // Place the gate using pushState for undo support
-      pushState((prev) => {
-        const newGrid = prev.map((r) => r.map((c) => ({ ...c })));
-        newGrid[row][col] = {
-          ...newGrid[row][col],
-          gate: gateType,
-          params: undefined,
-        };
-        return newGrid;
-      });
-
-      // Track recently used gate
-      addRecentGate?.(gateType);
-    },
-    [selectedCell, pushState, addRecentGate]
-  );
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Skip if target is an interactive element
@@ -184,7 +142,6 @@ export function useKeyboardShortcuts({
       }
 
       // Handle Escape - clears selection
-      // Note: In future, this should check for search being active first
       if (e.key === 'Escape') {
         if (selectedCell) {
           e.preventDefault();
@@ -210,16 +167,6 @@ export function useKeyboardShortcuts({
         }
         return;
       }
-
-      // Handle gate hotkeys (lowercase letter keys)
-      const lowerKey = e.key.toLowerCase();
-      if (GATE_HOTKEYS[lowerKey]) {
-        if (selectedCell) {
-          e.preventDefault();
-          handleGateHotkey(GATE_HOTKEYS[lowerKey]);
-        }
-        return;
-      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -229,6 +176,5 @@ export function useKeyboardShortcuts({
     clearSelection,
     handleArrowNavigation,
     handleDelete,
-    handleGateHotkey,
   ]);
 }

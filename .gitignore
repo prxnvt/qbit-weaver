@@ -53,5 +53,8 @@ Thumbs.db
 refs/UI_concept_01022026.html
 refs/UI_concept_01022026.png
 
+# Metadata
+metadata.json
+
 # Claude memory context files
 **/CLAUDE.md

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Undo2, Redo2, X, Download, Upload } from 'lucide-react';
+import { Undo2, Redo2, X, Download, Upload, Info, LayoutTemplate } from 'lucide-react';
 import {
   GateType,
   CircuitGrid,
@@ -28,9 +28,9 @@ import { InlinePercentage } from './components/InlinePercentage';
 import { AmplitudeGrid } from './components/AmplitudeGrid';
 import { AngleInput } from './components/AngleInput';
 import { CustomGateDialog } from './components/CustomGateDialog';
-import { AlgorithmSidebar } from './components/AlgorithmSidebar';
-import { InfoBox, HoverInfo } from './components/InfoBox';
-import { runCircuitWithMeasurements, getBlochVector, validateCircuit, ValidationError, CircuitSimulationResult } from './utils/quantum';
+import { TemplatesDropdown } from './components/TemplatesDropdown';
+import { InfoModal } from './components/InfoModal';
+import { runCircuitWithMeasurements, getBlochVector, validateCircuit, ValidationError } from './utils/quantum';
 import { downloadCircuitFile, readCircuitFile } from './utils/circuitSerializer';
 import { SimulationTimeline } from './components/SimulationTimeline';
 import { MeasurementPanel } from './components/MeasurementPanel';
@@ -140,7 +140,6 @@ const getTemplatePopulatedDimensions = (template: AlgorithmTemplate): { rows: nu
 
 const App: React.FC = () => {
   // Rows are always fixed at 8 (q0-q7)
-  const [hoverInfo, setHoverInfo] = useState<HoverInfo>({ type: 'none' });
   const [pendingAngle, setPendingAngle] = useState<PendingAngleInput | null>(null);
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [customGates, setCustomGates] = useState<CustomGateDefinition[]>([]);
@@ -177,6 +176,10 @@ const App: React.FC = () => {
   // Template drag state for algorithm sidebar
   const [templateDragHover, setTemplateDragHover] = useState<{ row: number; col: number } | null>(null);
   const [draggingTemplate, setDraggingTemplate] = useState<AlgorithmTemplate | null>(null);
+
+  // Header panel state
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
 
   // Spanning gate resize state (works for REVERSE, INPUT_A/B/R, arithmetic gates)
   const [resizingGate, setResizingGate] = useState<{
@@ -305,27 +308,9 @@ const App: React.FC = () => {
     };
   }, [hasTimeGates, isFrozen]);
 
-  // Hover handlers for InfoBox
-  const handleGateHover = useCallback((gate: GateType | null, params?: GateParams) => {
-    if (gate) {
-      setHoverInfo({ type: 'gate', gate, params });
-    } else {
-      setHoverInfo({ type: 'none' });
-    }
-  }, []);
-
-  const handleTemplateHover = useCallback((template: AlgorithmTemplate | null) => {
-    if (template) {
-      setHoverInfo({
-        type: 'template',
-        name: template.name,
-        qubits: template.qubits,
-        category: template.category
-      });
-    } else {
-      setHoverInfo({ type: 'none' });
-    }
-  }, []);
+  // No-op hover handler — InfoBox removed; child components still require the callback prop
+  const handleGateHover = useCallback((_gate: GateType | null, _params?: GateParams) => {}, []);
+  const noopHover = useCallback(() => {}, []);
 
   // Validate circuit whenever it changes
   useEffect(() => {
@@ -1399,7 +1384,6 @@ const App: React.FC = () => {
               onPlayPause={handlePlayPause}
               onStepForward={handleStepForward}
               onStepBack={handleStepBack}
-              activeColumns={activeColumns}
             />
           )}
 
@@ -1430,6 +1414,42 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Info Button */}
+          <button
+            onClick={() => setIsInfoOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 border-2 border-foreground hover:bg-foreground hover:text-background transition-colors text-base font-bold uppercase"
+            title="About Qbit Weaver"
+          >
+            <Info size={18} />
+            <span>Info</span>
+          </button>
+
+          {/* Templates Button + Dropdown */}
+          <div className="relative">
+            <button
+              id="templates-header-btn"
+              onClick={() => setIsTemplatesOpen(prev => !prev)}
+              className={`flex items-center gap-2 px-4 py-2 border-2 border-foreground transition-colors text-base font-bold uppercase ${
+                isTemplatesOpen
+                  ? 'bg-foreground text-background'
+                  : 'hover:bg-foreground hover:text-background'
+              }`}
+              title="Toggle templates panel"
+            >
+              <LayoutTemplate size={18} />
+              <span>Templates</span>
+            </button>
+            <TemplatesDropdown
+              isOpen={isTemplatesOpen}
+              onClose={() => setIsTemplatesOpen(false)}
+              onDragStart={setDraggingTemplate}
+              onDragEnd={() => {
+                setDraggingTemplate(null);
+                setTemplateDragHover(null);
+              }}
+            />
+          </div>
+
           {/* Save Button */}
           <button
             onClick={handleSaveCircuit}
@@ -1449,15 +1469,11 @@ const App: React.FC = () => {
             <Upload size={18} />
             <span>Upload</span>
           </button>
-
         </div>
       </header>
 
-      {/* Main Layout - Circuit Area + Gate Library + Sidebar */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
-
-        {/* Left: Circuit Area + Gate Library */}
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      {/* Main Layout - Circuit Area + Gate Library */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
           {/* Circuit Area - Scrollable, takes remaining space */}
           <section className="flex-1 relative bg-background min-h-0">
@@ -1611,7 +1627,7 @@ const App: React.FC = () => {
                                         numQubits={populatedRows.length}
                                         row={rIdx}
                                         cellId={cell.id}
-                                        onHover={setHoverInfo}
+                                        onHover={noopHover}
                                       />
                                     );
                                   } else if (cell.gate === GateType.PERCENT_VIS) {
@@ -1622,7 +1638,7 @@ const App: React.FC = () => {
                                         numQubits={populatedRows.length}
                                         row={rIdx}
                                         cellId={cell.id}
-                                        onHover={setHoverInfo}
+                                        onHover={noopHover}
                                       />
                                     );
                                   }
@@ -1771,8 +1787,8 @@ const App: React.FC = () => {
                             <div
                               className="border-2 border-foreground/30 flex items-center justify-center font-bold text-foreground relative overflow-hidden cursor-pointer"
                               style={{ width: GRID_CELL_SIZE, height: GRID_CELL_SIZE }}
-                              onMouseEnter={() => setHoverInfo({ type: 'percentage', qubit: rIdx, probability: parseFloat(prob1Pct) })}
-                              onMouseLeave={() => setHoverInfo({ type: 'none' })}
+                              onMouseEnter={noopHover}
+                              onMouseLeave={noopHover}
                             >
                               {/* Emerald fill from bottom based on percentage */}
                               <div
@@ -1789,7 +1805,7 @@ const App: React.FC = () => {
                               size={GRID_CELL_SIZE - 8}
                               row={rIdx}
                               col={-1}
-                              onHover={setHoverInfo}
+                              onHover={noopHover}
                             />
                           </div>
                         )}
@@ -1808,7 +1824,7 @@ const App: React.FC = () => {
                       numQubits={populatedRows.length}
                       maxHeight={MAX_ROWS * ROW_HEIGHT}
                       rowHeight={ROW_HEIGHT}
-                      onHover={setHoverInfo}
+                      onHover={noopHover}
                     />
                   </div>
                 )}
@@ -1876,31 +1892,15 @@ const App: React.FC = () => {
                 className="hidden"
               />
             </div>
+
           </section>
 
-          {/* Gate Library - Bottom of left column */}
-          <GateLibrary
-            onHoverGate={handleGateHover}
-            customGates={customGates}
-            onAddCustomGate={handleAddCustomGate}
-          />
-        </div>
-
-        {/* Right: Algorithm Templates Sidebar + InfoBox */}
-        <div className="flex flex-col shrink-0" style={{ width: 340 }}>
-          <AlgorithmSidebar
-            onHoverTemplate={handleTemplateHover}
-            onDragStart={setDraggingTemplate}
-            onDragEnd={() => {
-              setDraggingTemplate(null);
-              setTemplateDragHover(null);
-            }}
-          />
-
-          {/* Info Box - Bottom of right column */}
-          <InfoBox info={hoverInfo} />
-        </div>
-
+        {/* Gate Library - Bottom */}
+        <GateLibrary
+          onHoverGate={handleGateHover}
+          customGates={customGates}
+          onAddCustomGate={handleAddCustomGate}
+        />
       </div>
 
       {/* Angle Input Popup */}
@@ -1920,6 +1920,11 @@ const App: React.FC = () => {
           onCancel={handleCustomCancel}
           existingNames={customGates.map(g => g.label)}
         />
+      )}
+
+      {/* Info Modal */}
+      {isInfoOpen && (
+        <InfoModal onClose={() => setIsInfoOpen(false)} />
       )}
 
     </div>
