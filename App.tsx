@@ -168,6 +168,7 @@ const MobileAwareCell: React.FC<{
   const longPressFiredRef = React.useRef(false);
   const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
   const cellRef = React.useRef<HTMLDivElement>(null);
+  const [isLongPressing, setIsLongPressing] = React.useState(false);
 
   // Clean up long-press timer on unmount or when isMobile changes
   React.useEffect(() => {
@@ -179,14 +180,24 @@ const MobileAwareCell: React.FC<{
     };
   }, []);
 
+  const clearLongPress = React.useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    setIsLongPressing(false);
+  }, []);
+
   const handleTouchStart = React.useCallback((e: React.TouchEvent) => {
     if (!isMobile) return;
     const touch = e.touches[0];
     touchStartRef.current = { x: touch.clientX, y: touch.clientY };
     longPressFiredRef.current = false;
+    if (cell.gate) setIsLongPressing(true);
 
     longPressTimerRef.current = setTimeout(() => {
       longPressFiredRef.current = true;
+      setIsLongPressing(false);
       if (cell.gate) {
         onMobileDelete();
       }
@@ -199,18 +210,12 @@ const MobileAwareCell: React.FC<{
     const dx = touch.clientX - touchStartRef.current.x;
     const dy = touch.clientY - touchStartRef.current.y;
     if (Math.sqrt(dx * dx + dy * dy) > 10) {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
-      }
+      clearLongPress();
     }
-  }, []);
+  }, [clearLongPress]);
 
   const handleTouchEnd = React.useCallback(() => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
+    clearLongPress();
     // If long-press fired, don't trigger tap
     if (longPressFiredRef.current) {
       longPressFiredRef.current = false;
@@ -218,7 +223,7 @@ const MobileAwareCell: React.FC<{
     }
     if (!isMobile) return;
     onMobileTap(cellRef.current ?? undefined);
-  }, [isMobile, onMobileTap]);
+  }, [isMobile, onMobileTap, clearLongPress]);
 
   return (
     <div
@@ -237,19 +242,21 @@ const MobileAwareCell: React.FC<{
           ? 'ring-2 ring-cyan-400 ring-inset'
           : ''
       } ${
-        isStepColumn
-          ? 'bg-emerald-500/30'
-          : isInTemplateArea
-            ? (isTemplateInvalid
-                ? 'bg-red-500/30'
-                : isTemplateAnchor
-                  ? 'bg-yellow-400/60'
-                  : 'bg-yellow-400/30')
-            : isHovered
-              ? 'bg-accent/30'
-              : (isRowHighlighted || isColHighlighted)
-                ? 'bg-accent/15'
-                : ''
+        isLongPressing
+          ? 'bg-red-500/40'
+          : isStepColumn
+            ? 'bg-emerald-500/30'
+            : isInTemplateArea
+              ? (isTemplateInvalid
+                  ? 'bg-red-500/30'
+                  : isTemplateAnchor
+                    ? 'bg-yellow-400/60'
+                    : 'bg-yellow-400/30')
+              : isHovered
+                ? 'bg-accent/30'
+                : (isRowHighlighted || isColHighlighted)
+                  ? 'bg-accent/15'
+                  : ''
       }`}
       style={{ height: ROW_HEIGHT, width: CELL_WIDTH }}
     >
@@ -1218,7 +1225,7 @@ const App: React.FC = () => {
     } else {
       selectCell(row, col);
     }
-  }, [mobileGateSelection, grid, pushState, handleDrop, isSelected, selectCell, isParameterizedGate]);
+  }, [mobileGateSelection, grid, pushState, handleDrop, isSelected, selectCell]);
 
   // Mobile: long-press delete handler
   const handleMobileDelete = useCallback((row: number, col: number) => {
@@ -2022,6 +2029,37 @@ const App: React.FC = () => {
 
                         {/* Extension drop zone - between wire end and output */}
                         <div
+                          onClick={isMobile ? () => {
+                            const { state: mobileState } = mobileGateSelection;
+                            if (!mobileState.selectedGateType) return;
+
+                            const type = mobileState.selectedGateType;
+                            const params = mobileState.selectedGateParams;
+                            const dropCol = displayColCount;
+
+                            // Expand grid by one column
+                            setGrid((prev: CircuitGrid) => {
+                              const currentCols = prev[0]?.length ?? INITIAL_COLS;
+                              if (dropCol < currentCols) return prev;
+                              return prev.map((row, rowIdx: number) => [
+                                ...row,
+                                { gate: null, id: `cell-${rowIdx}-${currentCols}` }
+                              ]);
+                            });
+
+                            // Place the gate after expansion
+                            setTimeout(() => {
+                              if (isParameterizedGate(type) && !params?.angle) {
+                                setPendingAngle({
+                                  row: rIdx, col: dropCol, type,
+                                  position: { x: 100, y: 200 }
+                                });
+                              } else {
+                                handleDrop(rIdx, dropCol, type, params);
+                              }
+                              mobileGateSelection.cancel();
+                            }, 0);
+                          } : undefined}
                           onDragOver={(e) => {
                             e.preventDefault();
                             // Check if dragging an algorithm template
